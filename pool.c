@@ -5,8 +5,11 @@
 #include <pthread.h>
 
 #define BLOCK_SIZE 2
-#define linear(i,j,width) (i*width+j)
+#define BYTES_PER_PIXEL 4
 
+/**
+* TODO comment this
+*/
 typedef struct {
 	unsigned char *image_buffer;
 	unsigned char *out_buffer;
@@ -15,14 +18,9 @@ typedef struct {
 	unsigned image_width;
 } thread_arg_t;
 
-/*
-width_per_thread = width_in / number_of_threads;
-height_per_thread = height_in / number_of_threads;
-
-int rectify_png(unsigned char* image, unsigned width_thread, unsigned height_thread, 
-		unsigned width_offset, unsigned height_offset)
+/**
+* TODO comment this
 */
-
 void *max_pool(void *arg)
 {
 	thread_arg_t *thread_arg = (thread_arg_t *) arg;
@@ -32,25 +30,32 @@ void *max_pool(void *arg)
 	unsigned blocks_offset = thread_arg->blocks_offset;
 	unsigned image_width = thread_arg->image_width;
 
+	unsigned increment;
+	unsigned char* c;
+	unsigned max, val; 
 	for (int k = blocks_offset; k < blocks_offset + blocks; k++) 
 	{
-		for (int rgba = 0; rgba < 4; rgba++){
-			unsigned increment = (((2 * k) % image_width) == 0) ? 2 * image_width * k : 8 * k;
-			unsigned char* c = image_buffer + increment;
-			unsigned max = 0, val;
+		for (int rgba = 0; rgba < BYTES_PER_PIXEL; rgba++){
+			increment = (8 * image_width * (k / (image_width / 2))) 
+					+ 8 * (k % (image_width / 2));
+			c = image_buffer + increment;
+			max = 0;
 			for (int i = 0; i < BLOCK_SIZE; i++){
-				c += 4 * i * image_width;
+				c += BYTES_PER_PIXEL * image_width * i;
 				for (int j = 0; j < BLOCK_SIZE; j++){
-					c += 4 * j;
+					c += BYTES_PER_PIXEL * j;
 					val = (int)c[rgba];
 					max = (max < val) ? val : max;
 				}
 			}
-			out_buffer[k + rgba] = (unsigned char)max;
+			out_buffer[BYTES_PER_PIXEL*k + rgba] = (unsigned char)max;
 		}
 	}
 }
 
+/**
+* TODO add comments inside main
+*/
 int main(int argc, char *argv[])
 {
 	// TODO get arguments from argv
@@ -58,10 +63,10 @@ int main(int argc, char *argv[])
 	unsigned char output_filename[] = "test_pool1.png"; 
 	// TODO fix output_filename to be input_filename without .png + "_rectify.png"
 	
-	unsigned number_of_threads = 1; // TODO get from command line
+	unsigned number_of_threads = 8; // TODO get from command line
 	// *******************************
 
-    // for rectifying
+    // vars for pooling
 	unsigned char *image_buffer, *out_buffer;
 	unsigned width_in, height_in;
 	unsigned total_pixels, total_out_pixels, blocks_per_thread;
@@ -73,11 +78,11 @@ int main(int argc, char *argv[])
 	}
 
 	total_pixels = width_in * height_in;
-	total_out_pixels = total_pixels / 4;
+	total_out_pixels = total_pixels / BYTES_PER_PIXEL;
 	blocks_per_thread = total_out_pixels / number_of_threads;
 	blocks_per_thread = (blocks_per_thread == 0) ? 1 : blocks_per_thread;
 
-	out_buffer = (unsigned char*) malloc(4 * total_out_pixels);
+	out_buffer = (unsigned char*) malloc(BYTES_PER_PIXEL * total_out_pixels);
 
 	printf("%d total pixels; %d total blocks; using %d threads, computing %d blocks/thread.\n", 
 		total_pixels, total_out_pixels, number_of_threads, blocks_per_thread);
@@ -88,13 +93,13 @@ int main(int argc, char *argv[])
 	// record start time
 	// TODO
 
-	// perform rectifying
+	// perform 2x2 max pooling
 	for (int i = 0; i < number_of_threads && i < total_out_pixels; i++) {
 		//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
 		thread_args[i].image_buffer = image_buffer;
 		thread_args[i].out_buffer = out_buffer;
 		thread_args[i].blocks = blocks_per_thread;
-		thread_args[i].blocks_offset = i * blocks_per_thread;
+		thread_args[i].blocks_offset = blocks_per_thread * i;
 		thread_args[i].image_width = width_in;
 		pthread_create(&threads[i], NULL, max_pool, (void *)&thread_args[i]);
 	}
@@ -113,5 +118,3 @@ int main(int argc, char *argv[])
 	free(image_buffer);
 	return 0;
 }
-
-

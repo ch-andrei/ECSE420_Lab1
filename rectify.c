@@ -4,12 +4,20 @@
 #include <math.h>
 #include <pthread.h>
 
+#define BYTES_PER_PIXEL 4
+
+/**
+* TODO comment this
+*/
 typedef struct {
 	unsigned char *image_buffer;
 	unsigned length;
 	unsigned length_offset;
 } thread_arg_t;
 
+/**
+* TODO comment this
+*/
 void *rectify_array(void *arg)
 {
 	thread_arg_t *thread_arg = (thread_arg_t *) arg;
@@ -17,9 +25,9 @@ void *rectify_array(void *arg)
 	unsigned length = thread_arg->length;
 	unsigned length_offset = thread_arg->length_offset;
 
-	// pixel is 32bits, 8 bits for each channel (4 channels: RGBA)
+	// pixel is 32bits, 8 bits for each channel (BYTES_PER_PIXEL channels: RGBA)
 	// rectify RGB but not A 
-	for (int i = 4 * length_offset; i < 4 * (length_offset + length); i += 4) 
+	for (int i = BYTES_PER_PIXEL * length_offset; i < BYTES_PER_PIXEL * (length_offset + length); i += BYTES_PER_PIXEL) 
 	{
 		unsigned char* c = image + i * sizeof(char);
 		for (int j = 0; j < 3; j++){
@@ -32,6 +40,9 @@ void *rectify_array(void *arg)
 	}
 }
 
+/**
+* TODO add comments inside main
+*/
 int main(int argc, char *argv[])
 {
 	// TODO get arguments from argv
