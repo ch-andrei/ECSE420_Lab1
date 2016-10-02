@@ -1,4 +1,4 @@
-TARGET = rectify
+TARGET = pool
 CC = gcc
 CFLAGS = -g -Wall
 LIBS = -lpthread
@@ -8,7 +8,7 @@ LIBS = -lpthread
 default: $(TARGET)
 all: default
 
-OBJECTS = rectify.c lodepng.c
+OBJECTS = pool.c lodepng.c
 HEADERS = lodepng.h wm.h
 
 %.o: %.c $(HEADERS)
