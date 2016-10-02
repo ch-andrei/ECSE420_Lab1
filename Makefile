@@ -1,4 +1,4 @@
-TARGET = pool
+TARGET = convolve
 CC = gcc
 CFLAGS = -g -Wall
 LIBS = -lpthread
@@ -8,7 +8,7 @@ LIBS = -lpthread
 default: $(TARGET)
 all: default
 
-OBJECTS = pool.c lodepng.c
+OBJECTS = convolve.c lodepng.c
 HEADERS = lodepng.h wm.h
 
 %.o: %.c $(HEADERS)
