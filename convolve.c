@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <pthread.h>
+#include <string.h>
 #include "wm.h"
 
 #define BLOCK_SIZE 3
@@ -100,12 +101,28 @@ void *convolve(void *arg)
 */
 int main(int argc, char *argv[])
 {
-	// TODO get arguments from argv
-	unsigned char input_filename[] = "test.png";
-	unsigned char output_filename[] = "test_pool1.png"; 
-	// TODO fix output_filename to be input_filename without .png + "_rectify.png"
+	// get arguments from command line
+	if(argc<4)
+	{
+		printf("Not enough arguments. Input arguments as follows:\n"
+			"./convolve <name of input png> <name of output png> <# threads>\n");
+		return 0;
+	}
+
+	char *argv1 = argv[1];
+	char *argv2 = argv[2];
+	int argv3 = atoi(argv[3]);
+
+	int len1 = strlen(argv1)+1;
+	int len2 = strlen(argv2)+1;
+
+	unsigned char input_filename[len1];
+	strcpy((char *) input_filename, argv[1]);
+
+	unsigned char output_filename[len2]; 
+	strcpy((char *) output_filename, argv[2]);
 	
-	unsigned number_of_threads = 128; // TODO get from command line
+	unsigned number_of_threads = argv3; 
 	// *******************************
 
     // vars for convolution
