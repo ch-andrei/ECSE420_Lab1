@@ -1,26 +1,22 @@
-TARGET = rectify 
-#change 'rectify' above for 'pool' or 'convolve' to compile the latter
 CC = gcc
-CFLAGS = -g -Wall
+CFLAGS =
 LIBS = -lpthread
+TARGETS = rectify pool convolve
 
-.PHONY: default all clean
-
-default: $(TARGET)
+default: clean $(TARGETS)
 all: default
 
-OBJECTS = rectify.c lodepng.c
-#change 'rectify.c' above for 'pool.c' or 'convolve.c' to compile the latter
-HEADERS = lodepng.h wm.h
+.PHONY: clean
 
-%.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -o $@
+rectify:
+	$(CC) -o rectify rectify.c lodepng.c $(CFLAGS) -std=c99 $(LIBS)
 
-.PRECIOUS: $(TARGET) $(OBJECTS)
+pool:
+	$(CC) -o pool pool.c lodepng.c $(CFLAGS) -std=c99 $(LIBS)
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) -std=c99 -Wall $(LIBS) -o $@
+convolve:
+	$(CC) -o convolve convolve.c lodepng.c $(CFLAGS) -std=c99 $(LIBS)
 
 clean:
+	-rm -f $(TARGETS)
 	-rm -f *.o
-	-rm -f $(TARGET)

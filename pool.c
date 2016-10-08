@@ -14,7 +14,7 @@ typedef struct {
 	unsigned char *image_buffer;
 	unsigned char *out_buffer;
 	unsigned blocks;
-	unsigned blocks_offset;
+	signed blocks_offset;
 	unsigned image_width;
 } thread_arg_t;
 
@@ -100,8 +100,8 @@ int main(int argc, char *argv[])
 
 	out_buffer = (unsigned char*) malloc(BYTES_PER_PIXEL * total_out_pixels);
 
-	printf("%d total pixels; %d total blocks; using %d threads, computing %d blocks/thread.\n", 
-		total_pixels, total_out_pixels, number_of_threads, blocks_per_thread);
+	printf("%d width; %d height; %d total pixels; %d total blocks; using %d threads, computing %d blocks/thread.\n", 
+		width_in, height_in, total_pixels, total_out_pixels, number_of_threads, blocks_per_thread);
 
 	pthread_t threads[number_of_threads];
 	thread_arg_t thread_args[number_of_threads];
@@ -109,16 +109,31 @@ int main(int argc, char *argv[])
 	// record start time
 	// TODO
 
-	// perform 2x2 max pooling
-	for (int i = 0; i < number_of_threads && i < total_out_pixels; i++) {
+	unsigned leftover = total_out_pixels - number_of_threads * blocks_per_thread;
+	printf("leftover %d\n",leftover);
+
+	// set up parameters
+	for (unsigned i = 0; i < number_of_threads; i++) {
 		//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
 		thread_args[i].image_buffer = image_buffer;
 		thread_args[i].out_buffer = out_buffer;
+		thread_args[i].blocks_offset = i * blocks_per_thread;
 		thread_args[i].blocks = blocks_per_thread;
-		thread_args[i].blocks_offset = blocks_per_thread * i;
 		thread_args[i].image_width = width_in;
+	}
+
+	if (leftover > 0){
+		thread_args[0].blocks += leftover;
+		for (int i = 1; i < number_of_threads; i++) {
+			thread_args[i].blocks_offset += leftover;
+		}
+	}
+
+	for (int i = 0; i < number_of_threads; i++) {
+		//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
 		pthread_create(&threads[i], NULL, max_pool, (void *)&thread_args[i]);
 	}
+
 	// join threads
 	for (int i = 0; i < number_of_threads; i++) {
 		pthread_join(threads[i], NULL);

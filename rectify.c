@@ -22,7 +22,7 @@ typedef struct {
 /**
 * TODO comment this
 */
-void *rectify_array(void *arg)
+void *rectify(void *arg)
 {
 	thread_arg_t *thread_arg = (thread_arg_t *) arg;
 	unsigned char* image = thread_arg->image_buffer;
@@ -88,9 +88,8 @@ int main(int argc, char *argv[])
 	total_pixels = width_in * height_in;
 	pixels_per_thread = total_pixels / (number_of_threads);
 	pixels_per_thread = (pixels_per_thread == 0) ? 1 : pixels_per_thread;
-	leftover_pixels = total_pixels - pixels_per_thread * (number_of_threads); 
-	printf("%d total pixels; using %d threads: %d pixels/thread and leftover %d pixels.\n", 
-		total_pixels, number_of_threads, pixels_per_thread, leftover_pixels);
+	printf("%d width; %d height; %d total pixels; %d total blocks; using %d threads, computing %d blocks/thread.\n", 
+		width_in, height_in, total_pixels, total_pixels, number_of_threads, pixels_per_thread);
 
 	pthread_t threads[number_of_threads];
 	thread_arg_t thread_args[number_of_threads];
@@ -102,24 +101,32 @@ int main(int argc, char *argv[])
 	start = clock();
 	printf("Start: %d \n", start);
 
+	unsigned leftover = total_pixels - number_of_threads * pixels_per_thread;
+	printf("leftover %d\n",leftover);
+
 	// perform rectifying
 	for (int i = 0; i < number_of_threads && i < total_pixels; i++) {
 		//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
 		thread_args[i].image_buffer = image_buffer;
 		thread_args[i].length = pixels_per_thread;
 		thread_args[i].length_offset = pixels_per_thread * i;
-		pthread_create(&threads[i], NULL, rectify_array, (void *)&thread_args[i]);
 	}
+	// if image length is not a multiple of number of threads there will be someleftover bits
+	if (leftover > 0){
+		thread_args[0].length += leftover;
+		for (int i = 1; i < number_of_threads; i++) {
+			thread_args[i].length_offset += leftover;
+		}
+	}
+
+	for (int i = 0; i < number_of_threads && i < total_pixels; i++) {
+		//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
+		pthread_create(&threads[i], NULL, rectify, (void *)&thread_args[i]);
+	}
+
 	// join threads
 	for (int i = 0; i < number_of_threads; i++) {
 		pthread_join(threads[i], NULL);
-	}
-	// if image length is not a multiple of number of threads there will be someleftover bits
-	if (leftover_pixels > 0){
-		thread_args[0].image_buffer = image_buffer;
-		thread_args[0].length = leftover_pixels;
-		thread_args[0].length_offset = pixels_per_thread * (number_of_threads);
-		*rectify_array((void *)&thread_args[0]);
 	}
 
 	// record ending time
