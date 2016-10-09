@@ -5,8 +5,6 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <time.h>
-//#include <sys/types.h>
-//#include <sys/timers.h>
 
 #define BYTES_PER_PIXEL 4
 
@@ -92,8 +90,8 @@ int main(int argc, char *argv[])
 	total_pixels = width_in * height_in;
 	pixels_per_thread = total_pixels / (number_of_threads);
 	pixels_per_thread = (pixels_per_thread == 0) ? 1 : pixels_per_thread;
-	printf("%d width; %d height; %d total pixels; %d total blocks; using %d threads, computing %d blocks/thread.\n", 
-		width_in, height_in, total_pixels, total_pixels, number_of_threads, pixels_per_thread);
+	//printf("%d width; %d height; %d total pixels; %d total blocks; using %d threads, computing %d blocks/thread.\n", 
+	//	width_in, height_in, total_pixels, total_pixels, number_of_threads, pixels_per_thread);
 
 	pthread_t threads[number_of_threads];
 	thread_arg_t thread_args[number_of_threads];
@@ -103,10 +101,10 @@ int main(int argc, char *argv[])
 	double runtime; 
 	clock_t start, end; 
 	start = clock();
-	printf("Start: %d \n", start);
+	//printf("Start: %d \n", start);
 
 	unsigned leftover = total_pixels - number_of_threads * pixels_per_thread;
-	printf("leftover %d\n",leftover);
+	//printf("leftover %d\n",leftover);
 
 	// perform rectifying
 	for (int i = 0; i < number_of_threads && i < total_pixels; i++) {
@@ -136,10 +134,10 @@ int main(int argc, char *argv[])
 	// record ending time
 	// TODO
 	end = clock();
-	printf("End: %d \n", end);
+	//printf("End: %d \n", end);
 	runtime = ((double) (end-start))/CLOCKS_PER_SEC;
-	printf("Runtime is: %.23f seconds\n", runtime);
-
+	//printf("Runtime is: %.23f seconds\n", runtime);
+	printf("%.23f\n", runtime);
 	// save rectified pixel data to file
 	lodepng_encode32_file(output_filename, image_buffer, width_in, height_in);
 
