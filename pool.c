@@ -18,6 +18,10 @@ typedef struct {
 	unsigned image_width;
 } thread_arg_t;
 
+unsigned get_block_offset(unsigned k, unsigned image_width){
+	return 4 * (( 2 * image_width * (k / (image_width / 2))) + 2 * (k % (image_width / 2)));
+}
+
 /**
 * TODO comment this
 */
@@ -30,25 +34,25 @@ void *max_pool(void *arg)
 	unsigned blocks_offset = thread_arg->blocks_offset;
 	unsigned image_width = thread_arg->image_width;
 
-	unsigned increment;
 	unsigned char* c;
-	unsigned max, val; 
+	unsigned max, val, increment; 
 	for (int k = blocks_offset; k < blocks_offset + blocks; k++) 
 	{
 		for (int rgba = 0; rgba < BYTES_PER_PIXEL; rgba++){
-			increment = (8 * image_width * (k / (image_width / 2))) 
-					+ 8 * (k % (image_width / 2));
-			c = image_buffer + increment;
-			max = 0;
-			for (int i = 0; i < BLOCK_SIZE; i++){
-				c += BYTES_PER_PIXEL * image_width * i;
-				for (int j = 0; j < BLOCK_SIZE; j++){
-					c += BYTES_PER_PIXEL * j;
-					val = (int)c[rgba];
-					max = (max < val) ? val : max;
+			if (rgba < 3){
+				max = 0;
+				for (int i = 0; i < BLOCK_SIZE; i++){
+					c = image_buffer + get_block_offset(k, image_width) + BYTES_PER_PIXEL * image_width * i;
+					for (int j = 0; j < BLOCK_SIZE; j++){
+						c += BYTES_PER_PIXEL * j;
+						val = (int)c[rgba];
+						max = (max < val) ? val : max;
+					}
 				}
+				out_buffer[BYTES_PER_PIXEL*k + rgba] = (unsigned char)max;
+			} else {
+				out_buffer[BYTES_PER_PIXEL*k + rgba] = (unsigned char)255;
 			}
-			out_buffer[BYTES_PER_PIXEL*k + rgba] = (unsigned char)max;
 		}
 	}
 }
@@ -97,6 +101,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	width_in = width_in - width_in % 2;
+	height_in = height_in - height_in % 2;
 	total_pixels = width_in * height_in;
 	total_out_pixels = total_pixels / BYTES_PER_PIXEL;
 	blocks_per_thread = total_out_pixels / number_of_threads;

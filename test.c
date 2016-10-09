@@ -9,6 +9,11 @@ unsigned get_block_offset(unsigned i, unsigned j, unsigned image_width)
 	return ((i + 1) * image_width + j + 1);
 }
 
+unsigned pool_offset(unsigned k, unsigned image_width){
+	image_width = image_width - image_width % 2;
+	return 4 * (( 2 * image_width * (k / (image_width / 2))) + 2 * (k % (image_width / 2)));
+}
+
 /**
 * TODO comment this
 */
@@ -21,6 +26,6 @@ unsigned convert_block_to_pixel_offset(unsigned blocks_offset, unsigned image_wi
 }
 
 int main(void){
-	int kek = convert_block_to_pixel_offset(0,10);
+	int kek = pool_offset(8,17);
 	printf("kek %d\n",kek);
 }
