@@ -80,6 +80,10 @@ int main(int argc, char *argv[])
 	strcpy((char *) output_filename, argv[2]);
 	
 	unsigned number_of_threads = argv3;
+	if (number_of_threads < 1){
+		puts("Error: Invalid number of threads. Terminating.");
+		return -1;
+	}
 	// *******************************
 
     // vars for pooling
