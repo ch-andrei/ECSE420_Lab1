@@ -11,6 +11,7 @@
 /**
 * TODO comment this
 */
+
 typedef struct {
 	unsigned char *image_buffer;
 	unsigned length;
@@ -96,13 +97,6 @@ int main(int argc, char *argv[])
 	pthread_t threads[number_of_threads];
 	thread_arg_t thread_args[number_of_threads];
 
-	// record start time
-	// TODO
-	double runtime; 
-	clock_t start, end; 
-	start = clock();
-	//printf("Start: %d \n", start);
-
 	unsigned leftover = total_pixels - number_of_threads * pixels_per_thread;
 	//printf("leftover %d\n",leftover);
 
@@ -121,14 +115,25 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	for (int i = 0; i < number_of_threads && i < total_pixels; i++) {
-		//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
-		pthread_create(&threads[i], NULL, rectify, (void *)&thread_args[i]);
-	}
+	// record start time
+	// TODO
+	double runtime; 
+	clock_t start, end; 
+	start = clock();
+	//printf("Start: %d \n", start);
+	int n = 100;
 
-	// join threads
-	for (int i = 0; i < number_of_threads; i++) {
-		pthread_join(threads[i], NULL);
+	for(int i=0; i<n; i++)
+	{
+		for (int i = 0; i < number_of_threads && i < total_pixels; i++) {
+			//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
+			pthread_create(&threads[i], NULL, rectify, (void *)&thread_args[i]);
+		}
+
+		// join threads
+		for (int i = 0; i < number_of_threads; i++) {
+			pthread_join(threads[i], NULL);
+		}
 	}
 
 	// record ending time
@@ -136,8 +141,8 @@ int main(int argc, char *argv[])
 	end = clock();
 	//printf("End: %d \n", end);
 	runtime = ((double) (end-start))/CLOCKS_PER_SEC;
-	//printf("Runtime is: %.23f seconds\n", runtime);
-	printf("%.23f\n", runtime);
+	printf("Runtime is: %.23f seconds\n", runtime);
+	
 	// save rectified pixel data to file
 	lodepng_encode32_file(output_filename, image_buffer, width_in, height_in);
 

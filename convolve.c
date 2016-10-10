@@ -173,13 +173,6 @@ int main(int argc, char *argv[])
 	pthread_t threads[number_of_threads];
 	thread_arg_t thread_args[number_of_threads];
 
-	// record start time
-	// TODO
-	double runtime; 
-	clock_t start, end; 
-	start = clock();
-	printf("Start: %d \n", start);
-
 	unsigned leftover = total_out_pixels - number_of_threads * blocks_per_thread;
 	printf("leftover %d\n",leftover);
 
@@ -201,13 +194,24 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	for (int i = 0; i < number_of_threads && i < total_out_pixels; i++) {
-		//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
-		pthread_create(&threads[i], NULL, convolve, (void *)&thread_args[i]);
-	}
-	// join threads
-	for (int i = 0; i < number_of_threads; i++) {
-		pthread_join(threads[i], NULL);
+	// record start time
+	// TODO
+	double runtime; 
+	clock_t start, end; 
+	start = clock();
+	printf("Start: %d \n", start);
+	int n = 10;
+
+	for(int i=0; i<n; i++)
+	{
+		for (int i = 0; i < number_of_threads && i < total_out_pixels; i++) {
+			//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
+			pthread_create(&threads[i], NULL, convolve, (void *)&thread_args[i]);
+		}
+		// join threads
+		for (int i = 0; i < number_of_threads; i++) {
+			pthread_join(threads[i], NULL);
+		}
 	}
 
 	// record ending time
