@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <pthread.h>
-#include <unistd.h>
-#include <time.h>
 
 #define BLOCK_SIZE 2
 #define BYTES_PER_PIXEL 4
@@ -21,7 +19,7 @@ typedef struct {
 } thread_arg_t;
 
 unsigned get_block_offset(unsigned k, unsigned image_width){
-	return 4 * (( 2 * image_width * (k / (image_width / 2))) + 2 * (k % (image_width / 2)));
+	return BYTES_PER_PIXEL * BLOCK_SIZE * ( image_width * (k / (image_width / 2)) +  (k % (image_width / 2)));
 }
 
 /**
@@ -51,10 +49,11 @@ void *max_pool(void *arg)
 						max = (max < val) ? val : max;
 					}
 				}
-				out_buffer[BYTES_PER_PIXEL*k + rgba] = (unsigned char)max;
+				val = (unsigned char)max;
 			} else {
-				out_buffer[BYTES_PER_PIXEL*k + rgba] = (unsigned char)255;
+				val = (unsigned char)255;
 			}
+			out_buffer[BYTES_PER_PIXEL*k + rgba] = val;
 		}
 	}
 }
@@ -94,7 +93,7 @@ int main(int argc, char *argv[])
 
     // vars for pooling
 	unsigned char *image_buffer, *out_buffer;
-	unsigned width_in, height_in;
+	unsigned width_in, height_in, width_in_halved, height_in_halved;
 	unsigned total_pixels, total_out_pixels, blocks_per_thread;
 
 	int error1 = lodepng_decode32_file(&image_buffer, &width_in, &height_in, input_filename);
@@ -103,10 +102,10 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	width_in = width_in - width_in % 2;
-	height_in = height_in - height_in % 2;
+	width_in_halved = width_in / 2;
+	height_in_halved = height_in / 2;
 	total_pixels = width_in * height_in;
-	total_out_pixels = total_pixels / BYTES_PER_PIXEL;
+	total_out_pixels = width_in_halved * height_in_halved;
 	blocks_per_thread = total_out_pixels / number_of_threads;
 	blocks_per_thread = (blocks_per_thread == 0) ? 1 : blocks_per_thread;
 
@@ -117,6 +116,9 @@ int main(int argc, char *argv[])
 
 	pthread_t threads[number_of_threads];
 	thread_arg_t thread_args[number_of_threads];
+
+	// record start time
+	// TODO
 
 	unsigned leftover = total_out_pixels - number_of_threads * blocks_per_thread;
 	printf("leftover %d\n",leftover);
@@ -138,36 +140,21 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	// record start time
-	// TODO
-	double runtime; 
-	clock_t start, end; 
-	start = clock();
-	printf("Start: %d \n", start);
-	int n = 100;
-	
-	for(int i=0; i<n; i++)
-	{
-		for (int i = 0; i < number_of_threads; i++) {
-			//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
-			pthread_create(&threads[i], NULL, max_pool, (void *)&thread_args[i]);
-		}
+	for (int i = 0; i < number_of_threads; i++) {
+		//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
+		pthread_create(&threads[i], NULL, max_pool, (void *)&thread_args[i]);
+	}
 
-		// join threads
-		for (int i = 0; i < number_of_threads; i++) {
-			pthread_join(threads[i], NULL);
-		}
+	// join threads
+	for (int i = 0; i < number_of_threads; i++) {
+		pthread_join(threads[i], NULL);
 	}
 
 	// record ending time
 	// TODO
-	end = clock();
-	printf("End: %d \n", end);
-	runtime = ((double) (end-start))/CLOCKS_PER_SEC;
-	printf("Runtime is: %.23f seconds\n", runtime);
 
 	// save rectified pixel data to file
-	lodepng_encode32_file(output_filename, out_buffer, width_in / 2, height_in / 2);
+	lodepng_encode32_file(output_filename, out_buffer, width_in_halved, height_in_halved);
 
 	free(out_buffer);
 	free(image_buffer);
