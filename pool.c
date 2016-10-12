@@ -140,18 +140,32 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	for (int i = 0; i < number_of_threads; i++) {
-		//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
-		pthread_create(&threads[i], NULL, max_pool, (void *)&thread_args[i]);
-	}
+	// record start time
+	// TODO
+	double runtime; 
+	clock_t start, end; 
+	start = clock();
+	printf("Start: %d \n", start);
+	int n = 100;
+	for(int i=0; i<n; i++)
+	{
+		for (int i = 0; i < number_of_threads; i++) {
+			//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
+			pthread_create(&threads[i], NULL, max_pool, (void *)&thread_args[i]);
+		}
 
-	// join threads
-	for (int i = 0; i < number_of_threads; i++) {
-		pthread_join(threads[i], NULL);
+		// join threads
+		for (int i = 0; i < number_of_threads; i++) {
+			pthread_join(threads[i], NULL);
+		}
 	}
 
 	// record ending time
 	// TODO
+	end = clock();
+	printf("End: %d \n", end);
+	runtime = ((double) (end-start))/CLOCKS_PER_SEC;
+	printf("Runtime is: %.23f seconds\n", runtime);
 
 	// save rectified pixel data to file
 	lodepng_encode32_file(output_filename, out_buffer, width_in_halved, height_in_halved);
