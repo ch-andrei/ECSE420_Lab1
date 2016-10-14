@@ -8,20 +8,15 @@
 #include <unistd.h>
 #include <time.h>
 
-/**
-* TODO comment this
-*/
 #define BLOCK_SIZE 3
 #define BYTES_PER_PIXEL 4
+#define NUMBER_OF_LOOPS_TO_TEST 1 // set this to 10 if you want to measure runtime
 
-/**
-* TODO comment this
-*/
 #define get_1d(i, j, width) ((i)*(width)+(j))
 #define get_2d(index, width, ij) (((ij)==0)?((index)/(width)):((index)%(width)))
 
 /**
-* TODO comment this
+* struct to hold thread arguments
 */
 typedef struct {
 	unsigned char *image_buffer;
@@ -34,7 +29,7 @@ typedef struct {
 } thread_arg_t;
 
 /**
-* TODO comment this
+* gets pointer to the pixel (computes offset based on i, j index of the pixel)
 */
 unsigned char* get_pixel_pointer(unsigned i, unsigned j, unsigned char* image_ptr, unsigned image_width)
 {
@@ -42,7 +37,7 @@ unsigned char* get_pixel_pointer(unsigned i, unsigned j, unsigned char* image_pt
 }
 
 /**
-* TODO comment this
+* get 1-dimensional offset of a 2x2 block at index i,j
 */
 unsigned get_block_offset(unsigned i, unsigned j, unsigned image_width)
 {
@@ -50,7 +45,7 @@ unsigned get_block_offset(unsigned i, unsigned j, unsigned image_width)
 }
 
 /**
-* TODO comment this
+* converts offset from input picture to output picture (need this because output has different dimensions)
 */
 unsigned convert_block_to_pixel_offset(unsigned blocks_offset, unsigned image_width)
 {
@@ -60,7 +55,7 @@ unsigned convert_block_to_pixel_offset(unsigned blocks_offset, unsigned image_wi
 }
 
 /**
-* TODO comment this
+* method to perform convolution by a given thread
 */
 void *convolve(void *arg)
 {
@@ -76,19 +71,17 @@ void *convolve(void *arg)
 	int i = get_2d(blocks_offset, image_width, 0);
 	int j = get_2d(blocks_offset, image_width, 1);
 
-	//printf("[id%d], start: i %d, j %d; started with blocks left %d\n", thread_arg->id, i,j, blocks);
-
 	unsigned char* c;
 	unsigned val;
 	signed convolved;
 	while (blocks > 0){
-		if (j == image_width-2){
+		if (j == image_width-2){ // preincrement when on the edge of the image
 			i++;
 			j = 0;
 		}
 		for (int rgba = 0; rgba < BYTES_PER_PIXEL; rgba++) {
 			if (rgba != 3){
-				// for RGB channels
+				// for RGB channels: convolve 
 				convolved = 0;	
 				for (int ii = 0; ii < BLOCK_SIZE; ii++){
 					for (int jj = 0; jj < BLOCK_SIZE; jj++){
@@ -101,24 +94,19 @@ void *convolve(void *arg)
 				convolved = (convolved < 0) ? 0 : convolved;
 				convolved = (convolved > 255) ? 255 : convolved;
 			} else {
-				// for alpha channel; dont convolve, just set 255
+				// for alpha channel: dont convolve, just set 255
 				convolved = 255;
 			}
 			// store to output array
 			c = get_pixel_pointer(i, j, out_buffer, image_width - 2);
 			c[rgba] = convolved;
 		}
-		// increment
+		// adjust counter vars
 		blocks--;
 		j++;
 	}
-	//printf("[id%d], end: i %d, j %d; blocks left %d\n", thread_arg->id, i,j, blocks);
-	//pthread_exit(NULL);
 }
 
-/**
-* TODO add comments inside main
-*/
 int main(int argc, char *argv[])
 {
 	// get arguments from command line
@@ -154,12 +142,14 @@ int main(int argc, char *argv[])
 	unsigned width_in, height_in;
 	unsigned total_pixels, total_out_pixels, blocks_per_thread;
 
+	// get image data
 	int error1 = lodepng_decode32_file(&image_buffer, &width_in, &height_in, input_filename);
 	if(error1) {
 		printf("Error %u: %s\n", error1, lodepng_error_text(error1));
 		return -1;
 	}
 
+	// compute work distribution
 	total_pixels = width_in * height_in;
 	total_out_pixels = (width_in - 2) * (height_in - 2);
 	blocks_per_thread = total_out_pixels / number_of_threads;
@@ -186,7 +176,7 @@ int main(int argc, char *argv[])
 		thread_args[i].image_height = height_in;
 		thread_args[i].id = i;
 	}
-
+	// add leftover, if any
 	if (leftover > 0){
 		thread_args[0].blocks += leftover;
 		for (int i = 1; i < number_of_threads; i++) {
@@ -195,31 +185,28 @@ int main(int argc, char *argv[])
 	}
 
 	// record start time
-	// TODO
 	double runtime; 
 	clock_t start, end; 
 	start = clock();
 	printf("Start: %d \n", start);
-	int n = 10;
-
-	for(int i=0; i<n; i++)
+	unsigned counter = 0;
+	while(counter < NUMBER_OF_LOOPS_TO_TEST)
 	{
 		for (int i = 0; i < number_of_threads && i < total_out_pixels; i++) {
-			//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
 			pthread_create(&threads[i], NULL, convolve, (void *)&thread_args[i]);
 		}
 		// join threads
 		for (int i = 0; i < number_of_threads; i++) {
 			pthread_join(threads[i], NULL);
 		}
+		counter++;
 	}
 
 	// record ending time
-	// TODO
 	end = clock();
 	printf("End: %d \n", end);
 	runtime = ((double) (end-start))/CLOCKS_PER_SEC;
-	printf("Runtime is: %.23f seconds\n", runtime);
+	printf("Runtime is: %.23f seconds. Note that this value wont be accurate if only 1 test was run (which is default).\n", runtime);
 
 	// save rectified pixel data to file
 	lodepng_encode32_file(output_filename, out_buffer, width_in - 2, height_in - 2);

@@ -7,11 +7,11 @@
 #include <time.h>
 
 #define BYTES_PER_PIXEL 4
+#define NUMBER_OF_LOOPS_TO_TEST 1
 
 /**
-* TODO comment this
+* struct to hold thread arguments
 */
-
 typedef struct {
 	unsigned char *image_buffer;
 	unsigned length;
@@ -19,7 +19,7 @@ typedef struct {
 } thread_arg_t;
 
 /**
-* TODO comment this
+* method to perform rectification by a given thread
 */
 void *rectify(void *arg)
 {
@@ -43,9 +43,6 @@ void *rectify(void *arg)
 	}
 }
 
-/**
-* TODO add comments inside main
-*/
 int main(int argc, char *argv[])
 {
 	// get arguments from command line
@@ -76,7 +73,7 @@ int main(int argc, char *argv[])
 	}
 	// *******************************
 
-    // for rectifying
+    // vars for rectifying
 	unsigned char *image_buffer;
 	unsigned width_in, height_in;
 	unsigned total_pixels, pixels_per_thread;
@@ -88,21 +85,18 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	// compute work distribution
 	total_pixels = width_in * height_in;
 	pixels_per_thread = total_pixels / (number_of_threads);
 	pixels_per_thread = (pixels_per_thread == 0) ? 1 : pixels_per_thread;
-	//printf("%d width; %d height; %d total pixels; %d total blocks; using %d threads, computing %d blocks/thread.\n", 
-	//	width_in, height_in, total_pixels, total_pixels, number_of_threads, pixels_per_thread);
 
 	pthread_t threads[number_of_threads];
 	thread_arg_t thread_args[number_of_threads];
 
 	unsigned leftover = total_pixels - number_of_threads * pixels_per_thread;
-	//printf("leftover %d\n",leftover);
 
-	// perform rectifying
+	// set up thread args
 	for (int i = 0; i < number_of_threads && i < total_pixels; i++) {
-		//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
 		thread_args[i].image_buffer = image_buffer;
 		thread_args[i].length = pixels_per_thread;
 		thread_args[i].length_offset = pixels_per_thread * i;
@@ -116,24 +110,21 @@ int main(int argc, char *argv[])
 	}
 
 	// record start time
-	// TODO
 	double runtime; 
 	clock_t start, end; 
 	start = clock();
-	//printf("Start: %d \n", start);
-	int n = 100;
-
-	for(int i=0; i<n; i++)
+	printf("Start: %d \n", start);
+	unsigned counter = 0;
+	while(counter < NUMBER_OF_LOOPS_TO_TEST)
 	{
 		for (int i = 0; i < number_of_threads && i < total_pixels; i++) {
-			//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
 			pthread_create(&threads[i], NULL, rectify, (void *)&thread_args[i]);
 		}
-
 		// join threads
 		for (int i = 0; i < number_of_threads; i++) {
 			pthread_join(threads[i], NULL);
 		}
+		counter++;
 	}
 
 	// record ending time
@@ -141,7 +132,7 @@ int main(int argc, char *argv[])
 	end = clock();
 	//printf("End: %d \n", end);
 	runtime = ((double) (end-start))/CLOCKS_PER_SEC;
-	printf("Runtime is: %.23f seconds\n", runtime);
+	printf("Runtime is: %.23f seconds. Note that this value wont be accurate if only 1 test was run (which is default).\n", runtime);
 	
 	// save rectified pixel data to file
 	lodepng_encode32_file(output_filename, image_buffer, width_in, height_in);

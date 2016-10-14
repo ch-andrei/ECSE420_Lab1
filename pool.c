@@ -6,9 +6,10 @@
 
 #define BLOCK_SIZE 2
 #define BYTES_PER_PIXEL 4
+#define NUMBER_OF_LOOPS_TO_TEST 1
 
 /**
-* TODO comment this
+* struct to hold thread arguments
 */
 typedef struct {
 	unsigned char *image_buffer;
@@ -23,7 +24,7 @@ unsigned get_block_offset(unsigned k, unsigned image_width){
 }
 
 /**
-* TODO comment this
+* method to perform pooling by a given thread
 */
 void *max_pool(void *arg)
 {
@@ -40,6 +41,7 @@ void *max_pool(void *arg)
 	{
 		for (int rgba = 0; rgba < BYTES_PER_PIXEL; rgba++){
 			if (rgba < 3){
+				// for RGB channels
 				max = 0;
 				for (int i = 0; i < BLOCK_SIZE; i++){
 					c = image_buffer + get_block_offset(k, image_width) + BYTES_PER_PIXEL * image_width * i;
@@ -51,6 +53,7 @@ void *max_pool(void *arg)
 				}
 				val = (unsigned char)max;
 			} else {
+				// for alpha channel
 				val = (unsigned char)255;
 			}
 			out_buffer[BYTES_PER_PIXEL*k + rgba] = val;
@@ -58,9 +61,6 @@ void *max_pool(void *arg)
 	}
 }
 
-/**
-* TODO add comments inside main
-*/
 int main(int argc, char *argv[])
 {
 	// get arguments from command line
@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 		thread_args[i].blocks = blocks_per_thread;
 		thread_args[i].image_width = width_in;
 	}
-
+	// add leftover, if any
 	if (leftover > 0){
 		thread_args[0].blocks += leftover;
 		for (int i = 1; i < number_of_threads; i++) {
@@ -146,18 +146,17 @@ int main(int argc, char *argv[])
 	clock_t start, end; 
 	start = clock();
 	printf("Start: %d \n", start);
-	int n = 100;
-	for(int i=0; i<n; i++)
+	unsigned counter = 0;
+	while(counter < NUMBER_OF_LOOPS_TO_TEST)
 	{
 		for (int i = 0; i < number_of_threads; i++) {
-			//printf("[thread%d]: starting index %d\n", i+1, pixels_per_thread * i);
 			pthread_create(&threads[i], NULL, max_pool, (void *)&thread_args[i]);
 		}
-
 		// join threads
 		for (int i = 0; i < number_of_threads; i++) {
 			pthread_join(threads[i], NULL);
 		}
+		counter++;
 	}
 
 	// record ending time
@@ -165,7 +164,7 @@ int main(int argc, char *argv[])
 	end = clock();
 	printf("End: %d \n", end);
 	runtime = ((double) (end-start))/CLOCKS_PER_SEC;
-	printf("Runtime is: %.23f seconds\n", runtime);
+	printf("Runtime is: %.23f seconds. Note that this value wont be accurate if only 1 test was run (which is default).\n", runtime);
 
 	// save rectified pixel data to file
 	lodepng_encode32_file(output_filename, out_buffer, width_in_halved, height_in_halved);
