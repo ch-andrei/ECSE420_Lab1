@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <unistd.h>
-#include <time.h>
 #include <mpi.h>
 
 #define BYTES_PER_PIXEL 4
@@ -27,31 +26,31 @@ int main(int argc, char *argv[])
 	unsigned char output_filename[len2]; 
 	strcpy((char *) output_filename, argv[2]);
 
-    // Initialize the MPI environment
-    MPI_Init(&argc, &argv);
-    // Get the number of processes
-    int number_of_processes;
-    MPI_Comm_size(MPI_COMM_WORLD, &number_of_processes);
-    // Get the rank of the process
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	// Initialize the MPI environment
+	MPI_Init(&argc, &argv);
+	// Get the number of processes
+	int number_of_processes;
+	MPI_Comm_size(MPI_COMM_WORLD, &number_of_processes);
+	// Get the rank of the process
+	int rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    // vars for rectifying
+	// vars for rectifying
 	unsigned char *image_buffer;
 	unsigned width_in, height_in;
 	unsigned total_pixels, pixels_per_process;
 
 	int error;
 	if (rank == 0) {
-        error = lodepng_decode32_file(&image_buffer, &width_in, &height_in, input_filename);
-    }
-    // sync barrier
+		error = lodepng_decode32_file(&image_buffer, &width_in, &height_in, input_filename);
+	}
+	// sync barrier
 	MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(&error, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    if(error) {
+	MPI_Bcast(&error, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	if(error) {
 		printf("error %u: %s\n", error, lodepng_error_text(error));
 		// Finalize the MPI environment.
-    	MPI_Finalize();
+		MPI_Finalize();
 		return -1;
 	}
 
@@ -124,8 +123,8 @@ int main(int argc, char *argv[])
 
 	free(image_buffer);
 
-    // Finalize the MPI environment.
-    MPI_Finalize();
+	// Finalize the MPI environment.
+	MPI_Finalize();
 
 	return 0;
 }
