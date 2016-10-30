@@ -21,10 +21,10 @@ typedef struct unode_t{
 	float u_array[U_SIZE];
 } unode_t;
 
-void update_unode(unode_t unode, int new_u){
-	unode.u_array[2] = unode.u_array[1];
-	unode.u_array[1] = unode.u_array[0];
-	unode.u_array[0] = new_u;
+void update_unode(unode_t *unode, float new_u){
+	unode->u_array[2] = unode->u_array[1];
+	unode->u_array[1] = unode->u_array[0];
+	unode->u_array[0] = new_u;
 }
 
 void print_nodes(int rank, int adjusted_num_proc, int nodes_per_process, unode_t *nodes){
@@ -42,12 +42,14 @@ void print_nodes(int rank, int adjusted_num_proc, int nodes_per_process, unode_t
 				MPI_Recv(ptr, 1, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 			}
 		}
+		// print nodes
 		for (int i = 0; i < GRID_SIZE; i++){
 			for (int j = 0; j < GRID_SIZE; j++){
-				printf("[%d,%d] %f, ",i,j,nodes_num[get_1d(i,j,GRID_SIZE)]);
+				printf("{[%d,%d] %f} \t",i,j,nodes_num[get_1d(i,j,GRID_SIZE)]);
 			}
 			puts("");
 		}
+		puts("");
 	} else if (rank < adjusted_num_proc){
 		// send
 		for (int i = 0; i < nodes_per_process; i++){
@@ -56,6 +58,23 @@ void print_nodes(int rank, int adjusted_num_proc, int nodes_per_process, unode_t
 			MPI_Send(ptr, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
 		}
 	}
+}
+
+int get_node_process_id(int i, int j, int rank, int adjusted_num_proc){
+	// TODO 
+	int offset = get_1d(i, j, GRID_SIZE);
+
+	return rank;
+}
+
+float get_node_val(int i, int j, int age, int rank, int adjusted_num_proc){
+	// TODO
+	if (rank == get_node_process_id){
+
+	} else {
+		
+	}
+	return 1.0;
 }
 
 int main(int argc, char *argv[])
@@ -82,8 +101,7 @@ int main(int argc, char *argv[])
 	}
 	adjusted_num_proc >>= 1;
 	adjusted_num_proc = (adjusted_num_proc > GRID_SIZE) ? GRID_SIZE: adjusted_num_proc;
-	printf("adjusted adjusted_num_proc %d\n", adjusted_num_proc);
-
+	//printf("adjusted adjusted_num_proc %d\n", adjusted_num_proc);
 
 	int nodes_per_process = GRID_SIZE * GRID_SIZE / adjusted_num_proc;
 
@@ -96,14 +114,11 @@ int main(int argc, char *argv[])
 		unodes[i].i = get_2d (offset + i, GRID_SIZE, 0);
 		unodes[i].j = get_2d (offset + i, GRID_SIZE, 1);
 		for (int j = 0; j < 3; j++){
-			unodes[i].u_array[j] = 1.12;
+			unodes[i].u_array[j] = 0.18+i*j*0.02;
 		}
 		//printf ("[%d] Initialized node [%d,%d].\n", rank, unodes[i].i, unodes[i].j);
 	}
 
-	print_nodes(rank, adjusted_num_proc, nodes_per_process, unodes);
-
-	/*
 	if (rank < adjusted_num_proc){
 		float updated[nodes_per_process]; 
 		while (iterations-- > 0){
@@ -112,19 +127,26 @@ int main(int argc, char *argv[])
 				if (node_num == 0 || node_num == GRID_SIZE - 1 || node_num == GRID_SIZE * (GRID_SIZE - 1) || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
 					// if corner
 					// TODO
-					printf ("[%d,%d] corner node [%d,%d].\n", rank, node_num, unodes[i].i, unodes[i].j);
-				} else if (node_num % GRID_SIZE == 0 || node_num % GRID_SIZE == GRID_SIZE - 1){
+					//printf ("[%d,%d] corner node [%d,%d].\n", rank, node_num, unodes[i].i, unodes[i].j);
+				} else if (node_num % GRID_SIZE == 0 || node_num % GRID_SIZE == GRID_SIZE - 1 || node_num < GRID_SIZE || node_num > GRID_SIZE * (GRID_SIZE - 1)){
 					// if edge but not corner
 					// TODO
-					printf ("[%d,%d] edge node [%d,%d].\n", rank, node_num, unodes[i].i, unodes[i].j);
+					//printf ("[%d,%d] edge node [%d,%d].\n", rank, node_num, unodes[i].i, unodes[i].j);
 				} else {
 					// if not corner nor edge'
 					// TODO
-					printf ("[%d,%d] central node [%d,%d].\n", rank, node_num, unodes[i].i, unodes[i].j);
+					//printf ("[%d,%d] central node [%d,%d].\n", rank, node_num, unodes[i].i, unodes[i].j);
+					updated[i] = RHO * 4 * unodes[i].u_array[0] + 2 * unodes[i].u_array[0] - (1 - ETA) * unodes[i].u_array[1];
+					updated[i] += RHO * (unodes[i-1].u_array[0] + unodes[i-1].u_array[0] 
+						+ get_node_val(unodes[i].i, unodes[i].j - 1, 0, rank, adjusted_num_proc) 
+						+ get_node_val(unodes[i].i, unodes[i].j + 1, 0, rank, adjusted_num_proc));
+					update_unode(unodes+i, updated[i]);
 				}
 			}
+			MPI_Barrier(MPI_COMM_WORLD);
+			print_nodes(rank, adjusted_num_proc, nodes_per_process, unodes);
 		}
-	} */
+	}
 
 	// Finalize the MPI environment and return
 	MPI_Finalize();
