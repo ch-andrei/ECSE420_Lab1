@@ -126,23 +126,14 @@ void exchange_unode_data(int operation, int rank, int offset, int nodes_per_proc
 							kcount++;
 						} else if (source_rank != -1){
 							int index = node_num - offset;
-							if (i == ii){
-								if (j + 1 == jj){
-									// right
-									index += 1;
-								} else if (j - 1 == jj){
-									// left
-									index += -1;
-								}
-							} else if (j == jj){
-								if (i + 1 == ii){
-									// down
-									index += GRID_SIZE;
-								} else if (i - 1 == ii){
-									// up
-									index += -GRID_SIZE;
-								}
-							}
+							if (k == 0)
+								index += -GRID_SIZE;
+							else if (k == 1)
+								index += 1;
+							else if (k == 2)
+								index += GRID_SIZE;
+							else if (k == 3)
+								index += -1;
 							//if (rank == 1) 
 							//	printf("[%d] node %d (%d,%d) getting from node %d (%d,%d) {dir %d}: val %f\n", 
 							//	rank, node_num - offset, i,j,index, ii,jj, k, unodes[index].u_array[0]);
@@ -235,7 +226,7 @@ int main(int argc, char *argv[])
 			exchange_unode_data(SEND_OP, rank, offset, nodes_per_process, unodes, NULL);
 			// receieve
 			exchange_unode_data(RECEIVE_OP, rank, offset, nodes_per_process, unodes, received_buffer);
-			// update central nodes
+			// update edge nodes
 			for (i = 0; i < nodes_per_process; i++){
 				int node_num = offset + i;
 				if (node_num == 0 || node_num == GRID_SIZE - 1 || node_num == GRID_SIZE * (GRID_SIZE - 1) || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
@@ -261,13 +252,12 @@ int main(int argc, char *argv[])
 				}
 			}
 			MPI_Barrier(MPI_COMM_WORLD);
-
 			// ***************************************************************8
 			// send
 			exchange_unode_data(SEND_OP, rank, offset, nodes_per_process, unodes, NULL);
 			// receieve
 			exchange_unode_data(RECEIVE_OP, rank, offset, nodes_per_process, unodes, received_buffer);
-			// update central nodes
+			// update corner nodes
 			for (i = 0; i < nodes_per_process; i++){
 				int node_num = offset + i;
 				if (node_num == 0) {
