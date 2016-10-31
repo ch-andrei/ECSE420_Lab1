@@ -119,7 +119,7 @@ void exchange_unode_data(int operation, int rank, int offset, int nodes_per_proc
 							float num;
 							tag = get_1d(ii,jj,GRID_SIZE);
 							MPI_Recv(&num, 1, MPI_FLOAT, source_rank, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-							received_buffer[node_num-offset+k] = num;
+							received_buffer[4*(node_num - offset) + k] = num;
 							//if (i == 2 && j == 2) 
 							//	printf("[%d]:{%d,%d} received <%f> from [%d]:{%d,%d}; tag %d; node num %d\n", rank, i, j, num, source_rank, ii, jj, tag, node_num - offset);
 							counter++;
@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
 					// if central node; update
 					//printf ("[%d,%d] central node [%d,%d].\n", rank, node_num, unodes[i].i, unodes[i].j);
 					updated = RHO * (-4) * unodes[i].u_array[0] + 2 * unodes[i].u_array[0] - (1 - ETA) * unodes[i].u_array[1];
-					updated += RHO * (received_buffer[i] + received_buffer[i+1] + received_buffer[i+2] + received_buffer[i+3]);
+					updated += RHO * (received_buffer[4*i] + received_buffer[4*i+1] + received_buffer[4*i+2] + received_buffer[4*i+3]);
 					updated /= (1+ETA);
 					update_unode(unodes+i, updated);
 				}
