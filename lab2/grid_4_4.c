@@ -6,7 +6,7 @@
 
 // Note: the value of the "eta" constant should be 2e-4, the value of the "rho" constant should be 0.5, and the value of the "G" constant should be 0.75.
 
-#define GRID_SIZE 4
+#define GRID_SIZE 512
 #define U_SIZE 3
 #define ETA 0.0002
 #define RHO 0.5
@@ -24,13 +24,20 @@ typedef struct unode_t{
 	float u_array[U_SIZE];
 } unode_t;
 
+/**
+   * @brief updates unode values
+   */
 void update_unode(unode_t *unode, float new_u){
 	unode->u_array[2] = unode->u_array[1];
 	unode->u_array[1] = unode->u_array[0];
 	unode->u_array[0] = new_u;
 }
 
+/**
+   * @brief Prints the entire unode array to screen
+   */
 void print_nodes(int rank, int num_proc, int nodes_per_process, unode_t *nodes){
+	MPI_Barrier(MPI_COMM_WORLD);
 	float nodes_num[GRID_SIZE * GRID_SIZE];
 	if (rank == 0){
 		//get own nodes
@@ -61,14 +68,21 @@ void print_nodes(int rank, int num_proc, int nodes_per_process, unode_t *nodes){
 			MPI_Send(ptr, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
 		}
 	}
+	MPI_Barrier(MPI_COMM_WORLD);
 }
 
+/**
+   * @brief Gets the rank of the process to which node i,j belongs
+   */
 int get_node_process_id(int i, int j, int nodes_per_process){
 	if (i < 0 || j < 0 || i >= GRID_SIZE || j >= GRID_SIZE) 
 		return -1;
 	return get_1d(i, j, GRID_SIZE) / nodes_per_process;
 }
 
+/**
+   * @brief Updates indexes ii, jj based on the direction k and initial position i,j
+   */
 void get_index_by(int k, int i, int j, int *ii, int *jj){
 	switch (k){
 		default:
@@ -92,6 +106,9 @@ void get_index_by(int k, int i, int j, int *ii, int *jj){
 	}
 }
 
+/**
+   * @brief Gets all necessary unode data using MPI communication or getting values from the local process as relevant  
+   */
 void exchange_unode_data(int operation, int rank, int offset, int nodes_per_process, unode_t unodes[], float received_buffer[]){
 	// RECEIVE DATA
 	int counter;
@@ -174,7 +191,9 @@ int main(int argc, char *argv[])
 	int nodes_per_process = GRID_SIZE * GRID_SIZE / number_of_processes;
 	int offset = rank * nodes_per_process;
 
-	if (rank < number_of_processes){
+	// assume that the number of processes does not exceed the working size
+	// otherwise, number of processes should be adjusted
+	if (rank < number_of_processes) {
 		// init nodes
 		unode_t unodes[nodes_per_process];
 		int i;
@@ -192,9 +211,7 @@ int main(int argc, char *argv[])
 			unodes[perturb_node_offset-offset].u_array[0] = 1.0;
 			printf("[%d] perturbed at offset global/local (%d/%d)\n", rank, perturb_node_offset, perturb_node_offset-offset);
 		}
-		MPI_Barrier(MPI_COMM_WORLD);
-		print_nodes(rank, number_of_processes, nodes_per_process, unodes);
-		MPI_Barrier(MPI_COMM_WORLD);
+		//print_nodes(rank, number_of_processes, nodes_per_process, unodes);
 
 		// run computation iterations
 		while (iterations-- > 0){
@@ -281,8 +298,12 @@ int main(int argc, char *argv[])
 			MPI_Barrier(MPI_COMM_WORLD);
 			// ***************************************************************8
 
-			print_nodes(rank, number_of_processes, nodes_per_process, unodes);
+			//print_nodes(rank, number_of_processes, nodes_per_process, unodes);
+			if (perturb_node_offset >= offset && perturb_node_offset < offset + nodes_per_process){
+				// print node in the middle
+				printf("{[%d,%d] %f}\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturb_node_offset-offset].u_array[0]);
 			}
+		}
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
