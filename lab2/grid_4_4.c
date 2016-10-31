@@ -114,12 +114,15 @@ void get_index_by(int k, int i, int j, int *ii, int *jj){
    * @brief Gets all necessary unode data using MPI communication or getting values from the local process as relevant  
    */
 void exchange_unode_data(int operation, int update_restriction, int rank, int offset, int nodes_per_process, unode_t unodes[], float received_buffer[]){
-	// RECEIVE DATA
 	int counter;
+	// loop over all the nodes; work only on those that are assigned to the current process
 	for (int i = 0; i < GRID_SIZE; i++){
 		for (int j = 0; j < GRID_SIZE; j++){
+			// check if node is assigned to this process
 			int node_num = get_1d(i,j,GRID_SIZE);
 			if (node_num >= offset && node_num < offset + nodes_per_process){
+				// this node is assigned to this process
+				// check if it need to be updated
 				if (node_num == 0 || node_num == GRID_SIZE - 1 || node_num == GRID_SIZE * (GRID_SIZE - 1) || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
 					// if corner
 					if (update_restriction != UPDATE_CORNERS)
@@ -140,16 +143,21 @@ void exchange_unode_data(int operation, int update_restriction, int rank, int of
 					if (operation == SEND_OP){
 						int dest_rank = get_node_process_id(ii, jj, nodes_per_process);
 						if (dest_rank != -1 && dest_rank != rank){
+							// if belongs to another process, send using MPI
 							float num = unodes[node_num - offset].u_array[0];
 							tag = get_1d(i,j,GRID_SIZE);
 							MPI_Send(&num, 1, MPI_FLOAT, dest_rank, tag, MPI_COMM_WORLD);
 							//if (i == 2 && j == 2) 
 							//	printf("[%d]:{%d,%d} sent <%f> to [%d]:{%d,%d}; tag %d; node num %d\n", rank, i, j, num, dest_rank, ii, jj, tag, node_num - offset);
 							counter++;
+						} else {
+							// belongs to self, no need to send anything
+							// do nothing
 						}
 					} else if (operation == RECEIVE_OP){
 						int source_rank = get_node_process_id(ii, jj, nodes_per_process);
 						if (source_rank != -1 && source_rank != rank){
+							// if belongs to another process, receive using MPI
 							float num;
 							tag = get_1d(ii,jj,GRID_SIZE);
 							MPI_Recv(&num, 1, MPI_FLOAT, source_rank, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -159,6 +167,7 @@ void exchange_unode_data(int operation, int update_restriction, int rank, int of
 							counter++;
 							kcount++;
 						} else if (source_rank != -1){
+							// if belongs to self, get from the unode array
 							int index = node_num - offset;
 							if (k == 0)
 								index += -GRID_SIZE;
@@ -173,12 +182,16 @@ void exchange_unode_data(int operation, int update_restriction, int rank, int of
 							//	rank, node_num - offset, i,j,index, ii,jj, k, unodes[index].u_array[0]);
 							received_buffer[4*(node_num - offset) + k] = unodes[index].u_array[0];
 							kcount++;
+						} else {
+							// out of bounds
+							// do nothing
 						}
 					}
 				}
 			//if (operation == RECEIVE_OP)
 			//	printf("[%d{%d,%d}] kcount %d\n", rank,i,j, kcount);
 			} else {
+				// node is not assigned to the current process
 				// do nothing
 			}
 		}
@@ -232,9 +245,9 @@ int main(int argc, char *argv[])
 
 		// run computation iterations
 		while (iterations-- > 0){
-			// send
+			// send, with central nodes update restriction
 			exchange_unode_data(SEND_OP, UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, NULL);
-			// receieve
+			// receieve, with central nodes update restriction
 			float received_buffer[nodes_per_process*4];
 			exchange_unode_data(RECEIVE_OP, UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, received_buffer);
 			float updated;
@@ -256,9 +269,9 @@ int main(int argc, char *argv[])
 			}
 			MPI_Barrier(MPI_COMM_WORLD);
 			// ***************************************************************8
-			// send
+			// send, with edge nodes update restriction
 			exchange_unode_data(SEND_OP, UPDATE_EDGES, rank, offset, nodes_per_process, unodes, NULL);
-			// receieve
+			// receieve, with edge nodes update restriction
 			exchange_unode_data(RECEIVE_OP, UPDATE_EDGES, rank, offset, nodes_per_process, unodes, received_buffer);
 			// update edge nodes
 			for (i = 0; i < nodes_per_process; i++){
@@ -287,9 +300,9 @@ int main(int argc, char *argv[])
 			}
 			MPI_Barrier(MPI_COMM_WORLD);
 			// ***************************************************************8
-			// send
+			// send, with corner nodes update restriction
 			exchange_unode_data(SEND_OP, UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, NULL);
-			// receieve
+			// receieve, with corner nodes update restriction
 			exchange_unode_data(RECEIVE_OP, UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, received_buffer);
 			// update corner nodes
 			for (i = 0; i < nodes_per_process; i++){
