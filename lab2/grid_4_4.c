@@ -12,6 +12,10 @@
 #define RHO 0.5
 #define G 0.75
 
+#define UPDATE_CORNERS 0
+#define UPDATE_EDGES 1
+#define UPDATE_CENTRAL 2
+
 #define SEND_OP 0
 #define RECEIVE_OP 1
 
@@ -109,13 +113,26 @@ void get_index_by(int k, int i, int j, int *ii, int *jj){
 /**
    * @brief Gets all necessary unode data using MPI communication or getting values from the local process as relevant  
    */
-void exchange_unode_data(int operation, int rank, int offset, int nodes_per_process, unode_t unodes[], float received_buffer[]){
+void exchange_unode_data(int operation, int update_restriction, int rank, int offset, int nodes_per_process, unode_t unodes[], float received_buffer[]){
 	// RECEIVE DATA
 	int counter;
 	for (int i = 0; i < GRID_SIZE; i++){
 		for (int j = 0; j < GRID_SIZE; j++){
 			int node_num = get_1d(i,j,GRID_SIZE);
 			if (node_num >= offset && node_num < offset + nodes_per_process){
+				if (node_num == 0 || node_num == GRID_SIZE - 1 || node_num == GRID_SIZE * (GRID_SIZE - 1) || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
+					// if corner
+					if (update_restriction != UPDATE_CORNERS)
+						continue;
+				} else if (node_num % GRID_SIZE == 0 || node_num % GRID_SIZE == GRID_SIZE - 1 || node_num < GRID_SIZE || node_num > GRID_SIZE * (GRID_SIZE - 1)){
+					// if edge but not corner
+					if (update_restriction != UPDATE_EDGES)
+						continue;
+				} else {
+					// if central node
+					if (update_restriction != UPDATE_CENTRAL)
+						continue;
+				}
 				int kcount = 0;
 				for (int k = 0; k < 4; k++){
 					int ii = -1, jj = -1, tag;
@@ -216,10 +233,10 @@ int main(int argc, char *argv[])
 		// run computation iterations
 		while (iterations-- > 0){
 			// send
-			exchange_unode_data(SEND_OP, rank, offset, nodes_per_process, unodes, NULL);
+			exchange_unode_data(SEND_OP, UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, NULL);
 			// receieve
 			float received_buffer[nodes_per_process*4];
-			exchange_unode_data(RECEIVE_OP, rank, offset, nodes_per_process, unodes, received_buffer);
+			exchange_unode_data(RECEIVE_OP, UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, received_buffer);
 			float updated;
 			// update central nodes
 			for (i = 0; i < nodes_per_process; i++){
@@ -240,9 +257,9 @@ int main(int argc, char *argv[])
 			MPI_Barrier(MPI_COMM_WORLD);
 			// ***************************************************************8
 			// send
-			exchange_unode_data(SEND_OP, rank, offset, nodes_per_process, unodes, NULL);
+			exchange_unode_data(SEND_OP, UPDATE_EDGES, rank, offset, nodes_per_process, unodes, NULL);
 			// receieve
-			exchange_unode_data(RECEIVE_OP, rank, offset, nodes_per_process, unodes, received_buffer);
+			exchange_unode_data(RECEIVE_OP, UPDATE_EDGES, rank, offset, nodes_per_process, unodes, received_buffer);
 			// update edge nodes
 			for (i = 0; i < nodes_per_process; i++){
 				int node_num = offset + i;
@@ -271,9 +288,9 @@ int main(int argc, char *argv[])
 			MPI_Barrier(MPI_COMM_WORLD);
 			// ***************************************************************8
 			// send
-			exchange_unode_data(SEND_OP, rank, offset, nodes_per_process, unodes, NULL);
+			exchange_unode_data(SEND_OP, UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, NULL);
 			// receieve
-			exchange_unode_data(RECEIVE_OP, rank, offset, nodes_per_process, unodes, received_buffer);
+			exchange_unode_data(RECEIVE_OP, UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, received_buffer);
 			// update corner nodes
 			for (i = 0; i < nodes_per_process; i++){
 				int node_num = offset + i;
