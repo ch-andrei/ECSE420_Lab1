@@ -245,6 +245,9 @@ int main(int argc, char *argv[])
 		}
 		//print_nodes(rank, number_of_processes, nodes_per_process, unodes);
 
+		// TODO
+		// start timer here
+
 		// run computation iterations
 		while (iterations-- > 0){
 			// send, with central nodes update restriction
@@ -336,6 +339,9 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
+
+	// TODO
+	// end timer here
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
