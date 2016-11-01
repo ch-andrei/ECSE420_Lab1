@@ -6,15 +6,7 @@
 
 // Note: the value of the "eta" constant should be 2e-4, the value of the "rho" constant should be 0.5, and the value of the "G" constant should be 0.75.
 
-#define GRID_SIZE 512
-#define U_SIZE 3
-#define ETA 0.0002
-#define RHO 0.5
-#define G 0.75
 
-#define UPDATE_CORNERS 0
-#define UPDATE_EDGES 1
-#define UPDATE_CENTRAL 2
 
 #define SEND_OP 0
 #define RECEIVE_OP 1
