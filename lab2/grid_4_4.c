@@ -113,7 +113,7 @@ void get_index_by(int k, int i, int j, int *ii, int *jj){
 /**
    * @brief Gets all necessary unode data using MPI communication or getting values from the local process as relevant  
    */
-void exchange_unode_data(int operation, int update_restriction, int rank, int offset, int nodes_per_process, unode_t unodes[], float received_buffer[]){
+void exchange_unode_data(int operation, int update_restriction, int rank, int offset, int nodes_per_process, unode_t unodes[], float node_data_buffer[]){
 	int counter;
 	// loop over all the nodes; work only on those that are assigned to the current process
 	for (int i = 0; i < GRID_SIZE; i++){
@@ -161,7 +161,7 @@ void exchange_unode_data(int operation, int update_restriction, int rank, int of
 							float num;
 							tag = get_1d(ii,jj,GRID_SIZE);
 							MPI_Recv(&num, 1, MPI_FLOAT, source_rank, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-							received_buffer[4*(node_num - offset) + k] = num;
+							node_data_buffer[4*(node_num - offset) + k] = num;
 							//if (i == 2 && j == 2) 
 							//	printf("[%d]:{%d,%d} received <%f> from [%d]:{%d,%d}; tag %d; node num %d\n", rank, i, j, num, source_rank, ii, jj, tag, node_num - offset);
 							counter++;
@@ -180,7 +180,7 @@ void exchange_unode_data(int operation, int update_restriction, int rank, int of
 							//if (rank == 1) 
 							//	printf("[%d] node %d (%d,%d) getting from node %d (%d,%d) {dir %d}: val %f\n", 
 							//	rank, node_num - offset, i,j,index, ii,jj, k, unodes[index].u_array[0]);
-							received_buffer[4*(node_num - offset) + k] = unodes[index].u_array[0];
+							node_data_buffer[4*(node_num - offset) + k] = unodes[index].u_array[0];
 							kcount++;
 						} else {
 							// out of bounds
@@ -221,6 +221,8 @@ int main(int argc, char *argv[])
 	int nodes_per_process = GRID_SIZE * GRID_SIZE / number_of_processes;
 	int offset = rank * nodes_per_process;
 
+	float* node_data_buffer = (float*) malloc(nodes_per_process * 4 * sizeof(float));
+
 	// assume that the number of processes does not exceed the working size
 	// otherwise, number of processes should be adjusted
 	if (rank < number_of_processes) {
@@ -248,8 +250,7 @@ int main(int argc, char *argv[])
 			// send, with central nodes update restriction
 			exchange_unode_data(SEND_OP, UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, NULL);
 			// receieve, with central nodes update restriction
-			float received_buffer[nodes_per_process*4];
-			exchange_unode_data(RECEIVE_OP, UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, received_buffer);
+			exchange_unode_data(RECEIVE_OP, UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, node_data_buffer);
 			float updated;
 			// update central nodes
 			for (i = 0; i < nodes_per_process; i++){
@@ -262,7 +263,7 @@ int main(int argc, char *argv[])
 					// if central node; update
 					//printf ("[%d,%d] central node [%d,%d].\n", rank, node_num, unodes[i].i, unodes[i].j);
 					updated = RHO * (-4) * unodes[i].u_array[0] + 2 * unodes[i].u_array[0] - (1 - ETA) * unodes[i].u_array[1];
-					updated += RHO * (received_buffer[4*i] + received_buffer[4*i+1] + received_buffer[4*i+2] + received_buffer[4*i+3]);
+					updated += RHO * (node_data_buffer[4*i] + node_data_buffer[4*i+1] + node_data_buffer[4*i+2] + node_data_buffer[4*i+3]);
 					updated /= (1+ETA);
 					update_unode(unodes+i, updated);
 				}
@@ -272,7 +273,7 @@ int main(int argc, char *argv[])
 			// send, with edge nodes update restriction
 			exchange_unode_data(SEND_OP, UPDATE_EDGES, rank, offset, nodes_per_process, unodes, NULL);
 			// receieve, with edge nodes update restriction
-			exchange_unode_data(RECEIVE_OP, UPDATE_EDGES, rank, offset, nodes_per_process, unodes, received_buffer);
+			exchange_unode_data(RECEIVE_OP, UPDATE_EDGES, rank, offset, nodes_per_process, unodes, node_data_buffer);
 			// update edge nodes
 			for (i = 0; i < nodes_per_process; i++){
 				int node_num = offset + i;
@@ -280,19 +281,19 @@ int main(int argc, char *argv[])
 					// if corner; do nothing
 				} else if (node_num % GRID_SIZE == 0){
 					// left edge
-					updated = G * received_buffer[4*i+1];
+					updated = G * node_data_buffer[4*i+1];
 					update_unode(unodes+i, updated);
 				} else if (node_num % GRID_SIZE == GRID_SIZE - 1) {
 					// right edge
-					updated = G * received_buffer[4*i+3];
+					updated = G * node_data_buffer[4*i+3];
 					update_unode(unodes+i, updated);
 				} else if(node_num < GRID_SIZE){
 					// top edge
-					updated = G * received_buffer[4*i+2];
+					updated = G * node_data_buffer[4*i+2];
 					update_unode(unodes+i, updated);
 				} else if (node_num > GRID_SIZE * (GRID_SIZE - 1)){
 					// bottom edge
-					updated = G * received_buffer[4*i];
+					updated = G * node_data_buffer[4*i];
 					update_unode(unodes+i, updated);
 				} else {
 					// if central node; do nothing
@@ -303,21 +304,21 @@ int main(int argc, char *argv[])
 			// send, with corner nodes update restriction
 			exchange_unode_data(SEND_OP, UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, NULL);
 			// receieve, with corner nodes update restriction
-			exchange_unode_data(RECEIVE_OP, UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, received_buffer);
+			exchange_unode_data(RECEIVE_OP, UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, node_data_buffer);
 			// update corner nodes
 			for (i = 0; i < nodes_per_process; i++){
 				int node_num = offset + i;
 				if (node_num == 0) {
 					// left top corner
-					updated = G * received_buffer[4*i+2];
+					updated = G * node_data_buffer[4*i+2];
 					update_unode(unodes+i, updated);
 				} else if (node_num == GRID_SIZE * (GRID_SIZE - 1)){
 					// left bottom corner
-					updated = G * received_buffer[4*i];
+					updated = G * node_data_buffer[4*i];
 					update_unode(unodes+i, updated);
 				} else if (node_num == GRID_SIZE - 1 || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
 					// right top and bottom corners
-					updated = G * received_buffer[4*i+3];
+					updated = G * node_data_buffer[4*i+3];
 					update_unode(unodes+i, updated);
 				} else if (node_num % GRID_SIZE == 0 || node_num % GRID_SIZE == GRID_SIZE - 1 || node_num < GRID_SIZE || node_num > GRID_SIZE * (GRID_SIZE - 1)){
 					// if edge but not corner; do nothing
@@ -338,6 +339,7 @@ int main(int argc, char *argv[])
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
+	free(node_data_buffer);
 	// Finalize the MPI environment and return
 	MPI_Finalize();
 	return 0;
