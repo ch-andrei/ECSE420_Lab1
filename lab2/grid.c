@@ -6,7 +6,12 @@
 
 // Note: the value of the "eta" constant should be 2e-4, the value of the "rho" constant should be 0.5, and the value of the "G" constant should be 0.75.
 
+#ifdef RUNTIME_SMALL
+#define GRID_SIZE		4
+#else
 #define GRID_SIZE		512
+#endif
+
 #define U_SIZE			3
 #define ETA				0.0002
 #define RHO				0.5
@@ -111,6 +116,26 @@ void get_index_by(int k, int i, int j, int *ii, int *jj){
 }
 
 /**
+   * @brief Return true if the node does not need to be updated
+   */
+int check_update_condition(int update_restriction, int node_num){
+	if (node_num == 0 || node_num == GRID_SIZE - 1 || node_num == GRID_SIZE * (GRID_SIZE - 1) || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
+		// if corner
+		if (update_restriction != UPDATE_CORNERS)
+			return 0;
+	} else if (node_num % GRID_SIZE == 0 || node_num % GRID_SIZE == GRID_SIZE - 1 || node_num < GRID_SIZE || node_num > GRID_SIZE * (GRID_SIZE - 1)){
+		// if edge but not corner
+		if (update_restriction != UPDATE_EDGES)
+			return 0;
+	} else {
+		// if central node
+		if (update_restriction != UPDATE_CENTRAL)
+			return 0;
+	}
+	return 1;
+}
+
+/**
    * @brief Gets all necessary unode data using MPI communication or getting values from the local process as relevant  
    */
 void exchange_unode_data(int operation, int update_restriction, int rank, int offset, int nodes_per_process, unode_t unodes[], float node_data_buffer[]){
@@ -123,19 +148,6 @@ void exchange_unode_data(int operation, int update_restriction, int rank, int of
 			if (node_num >= offset && node_num < offset + nodes_per_process){
 				// this node is assigned to this process
 				// check if it need to be updated
-				if (node_num == 0 || node_num == GRID_SIZE - 1 || node_num == GRID_SIZE * (GRID_SIZE - 1) || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
-					// if corner
-					if (update_restriction != UPDATE_CORNERS)
-						continue;
-				} else if (node_num % GRID_SIZE == 0 || node_num % GRID_SIZE == GRID_SIZE - 1 || node_num < GRID_SIZE || node_num > GRID_SIZE * (GRID_SIZE - 1)){
-					// if edge but not corner
-					if (update_restriction != UPDATE_EDGES)
-						continue;
-				} else {
-					// if central node
-					if (update_restriction != UPDATE_CENTRAL)
-						continue;
-				}
 				int kcount = 0;
 				for (int k = 0; k < 4; k++){
 					int ii = -1, jj = -1, tag;
@@ -143,6 +155,9 @@ void exchange_unode_data(int operation, int update_restriction, int rank, int of
 					if (operation == SEND_OP){
 						int dest_rank = get_node_process_id(ii, jj, nodes_per_process);
 						if (dest_rank != -1 && dest_rank != rank){
+							int dest_node_num = get_1d(ii,jj,GRID_SIZE);
+							if (!check_update_condition(update_restriction, dest_node_num))
+								continue;
 							// if belongs to another process, send using MPI
 							float num = unodes[node_num - offset].u_array[0];
 							tag = get_1d(i,j,GRID_SIZE);
@@ -157,6 +172,8 @@ void exchange_unode_data(int operation, int update_restriction, int rank, int of
 					} else if (operation == RECEIVE_OP){
 						int source_rank = get_node_process_id(ii, jj, nodes_per_process);
 						if (source_rank != -1 && source_rank != rank){
+							if (!check_update_condition(update_restriction, node_num))
+								continue;
 							// if belongs to another process, receive using MPI
 							float num;
 							tag = get_1d(ii,jj,GRID_SIZE);
