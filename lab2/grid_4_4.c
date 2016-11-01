@@ -200,6 +200,84 @@ void exchange_unode_data(int operation, int update_restriction, int rank, int of
 	MPI_Barrier(MPI_COMM_WORLD);
 }
 
+/**
+   * @brief performs a sub-iteration (toggle for updating central/edges/corners via @update_restriction)
+   */
+void simulate_sub_iteration(int update_restriction, int rank, int offset, int nodes_per_process, unode_t unodes[], float node_data_buffer[]){
+	// send, with central nodes update restriction
+	exchange_unode_data(SEND_OP, update_restriction, rank, offset, nodes_per_process, unodes, NULL);
+	// receieve, with central nodes update restriction
+	exchange_unode_data(RECEIVE_OP, update_restriction, rank, offset, nodes_per_process, unodes, node_data_buffer);
+	float updated;
+	// update central nodes
+	for (int i = 0; i < nodes_per_process; i++){
+		int node_num = offset + i;
+		if (update_restriction == UPDATE_CORNERS){
+			// if updating corners
+			if (node_num == 0) {
+				// left top corner
+				updated = G * node_data_buffer[4*i+2];
+				update_unode(unodes+i, updated);
+			} else if (node_num == GRID_SIZE * (GRID_SIZE - 1)){
+				// left bottom corner
+				updated = G * node_data_buffer[4*i];
+				update_unode(unodes+i, updated);
+			} else if (node_num == GRID_SIZE - 1 || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
+				// right top and bottom corners
+				updated = G * node_data_buffer[4*i+3];
+				update_unode(unodes+i, updated);
+			}
+		} else if (update_restriction == UPDATE_EDGES){
+			// if updating edges
+			if (node_num % GRID_SIZE == 0){
+				// left edge
+				updated = G * node_data_buffer[4*i+1];
+				update_unode(unodes+i, updated);
+			} else if (node_num % GRID_SIZE == GRID_SIZE - 1) {
+				// right edge
+				updated = G * node_data_buffer[4*i+3];
+				update_unode(unodes+i, updated);
+			} else if(node_num < GRID_SIZE){
+				// top edge
+				updated = G * node_data_buffer[4*i+2];
+				update_unode(unodes+i, updated);
+			} else if (node_num > GRID_SIZE * (GRID_SIZE - 1)){
+				// bottom edge
+				updated = G * node_data_buffer[4*i];
+				update_unode(unodes+i, updated);
+			}
+		} else if (update_restriction == UPDATE_CENTRAL){
+			// if updating central nodes
+			//printf ("[%d,%d] central node [%d,%d].\n", rank, node_num, unodes[i].i, unodes[i].j);
+			updated = RHO * (-4) * unodes[i].u_array[0] + 2 * unodes[i].u_array[0] - (1 - ETA) * unodes[i].u_array[1];
+			updated += RHO * (node_data_buffer[4 * i] + node_data_buffer[4 * i + 1] + node_data_buffer[4 * i + 2] + node_data_buffer[4 * i + 3]);
+			updated /= (1 + ETA);
+			update_unode(unodes+i, updated);
+		}
+	}
+	MPI_Barrier(MPI_COMM_WORLD);
+}
+
+/**
+   * @brief initializes nodes assigned to current process
+   */
+void nodes_setup(int rank, unode_t unodes[], int nodes_per_process, int offset, int *perturbation_node){
+	// init nodes
+	for (int i = 0; i < nodes_per_process; i++){
+		unodes[i].i = get_2d (offset + i, GRID_SIZE, 0);
+		unodes[i].j = get_2d (offset + i, GRID_SIZE, 1);
+		for (int j = 0; j < 3; j++){
+			unodes[i].u_array[j] = 0;
+		}
+	}
+	// add perturbation
+	*perturbation_node = get_1d(GRID_SIZE/2, GRID_SIZE/2, GRID_SIZE);
+	if (*perturbation_node >= offset && *perturbation_node < offset + nodes_per_process){
+		unodes[*perturbation_node - offset].u_array[0] = 1.0;
+		// printf("[%d] perturbed at offset global/local (%d/%d)\n", rank, *perturbation_node, *perturbation_node - offset);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	if(argc<1)
@@ -221,122 +299,26 @@ int main(int argc, char *argv[])
 	int nodes_per_process = GRID_SIZE * GRID_SIZE / number_of_processes;
 	int offset = rank * nodes_per_process;
 
-	float* node_data_buffer = (float*) malloc(nodes_per_process * 4 * sizeof(float));
+	// setup grid nodes (only those assigned to current process)
+	float *node_data_buffer = (float*) malloc(nodes_per_process * 4 * sizeof(float));
+	unode_t *unodes = (unode_t *) malloc(nodes_per_process * sizeof(unode_t));
+	int perturbation_node;
+	nodes_setup(rank, unodes, nodes_per_process, offset, &perturbation_node);
 
-	// assume that the number of processes does not exceed the working size
-	// otherwise, number of processes should be adjusted
-	if (rank < number_of_processes) {
-		// init nodes
-		unode_t unodes[nodes_per_process];
-		int i;
-		for (i = 0; i < nodes_per_process; i++){
-			unodes[i].i = get_2d (offset + i, GRID_SIZE, 0);
-			unodes[i].j = get_2d (offset + i, GRID_SIZE, 1);
-			for (int j = 0; j < 3; j++){
-				unodes[i].u_array[j] = 0;
-			}
-		}
+	// TODO
+	// start timer here
 
-		// add perturbation
-		int perturb_node_offset = get_1d(GRID_SIZE/2, GRID_SIZE/2, GRID_SIZE);
-		if (perturb_node_offset >= offset && perturb_node_offset < offset + nodes_per_process){
-			unodes[perturb_node_offset-offset].u_array[0] = 1.0;
-			printf("[%d] perturbed at offset global/local (%d/%d)\n", rank, perturb_node_offset, perturb_node_offset-offset);
-		}
-		//print_nodes(rank, number_of_processes, nodes_per_process, unodes);
-
-		// TODO
-		// start timer here
-
-		// run computation iterations
-		while (iterations-- > 0){
-			// send, with central nodes update restriction
-			exchange_unode_data(SEND_OP, UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, NULL);
-			// receieve, with central nodes update restriction
-			exchange_unode_data(RECEIVE_OP, UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, node_data_buffer);
-			float updated;
-			// update central nodes
-			for (i = 0; i < nodes_per_process; i++){
-				int node_num = offset + i;
-				if (node_num == 0 || node_num == GRID_SIZE - 1 || node_num == GRID_SIZE * (GRID_SIZE - 1) || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
-					// if corner; do nothing
-				} else if (node_num % GRID_SIZE == 0 || node_num % GRID_SIZE == GRID_SIZE - 1 || node_num < GRID_SIZE || node_num > GRID_SIZE * (GRID_SIZE - 1)){
-					// if edge but not corner; do nothing
-				} else {
-					// if central node; update
-					//printf ("[%d,%d] central node [%d,%d].\n", rank, node_num, unodes[i].i, unodes[i].j);
-					updated = RHO * (-4) * unodes[i].u_array[0] + 2 * unodes[i].u_array[0] - (1 - ETA) * unodes[i].u_array[1];
-					updated += RHO * (node_data_buffer[4*i] + node_data_buffer[4*i+1] + node_data_buffer[4*i+2] + node_data_buffer[4*i+3]);
-					updated /= (1+ETA);
-					update_unode(unodes+i, updated);
-				}
-			}
-			MPI_Barrier(MPI_COMM_WORLD);
-			// ***************************************************************8
-			// send, with edge nodes update restriction
-			exchange_unode_data(SEND_OP, UPDATE_EDGES, rank, offset, nodes_per_process, unodes, NULL);
-			// receieve, with edge nodes update restriction
-			exchange_unode_data(RECEIVE_OP, UPDATE_EDGES, rank, offset, nodes_per_process, unodes, node_data_buffer);
-			// update edge nodes
-			for (i = 0; i < nodes_per_process; i++){
-				int node_num = offset + i;
-				if (node_num == 0 || node_num == GRID_SIZE - 1 || node_num == GRID_SIZE * (GRID_SIZE - 1) || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
-					// if corner; do nothing
-				} else if (node_num % GRID_SIZE == 0){
-					// left edge
-					updated = G * node_data_buffer[4*i+1];
-					update_unode(unodes+i, updated);
-				} else if (node_num % GRID_SIZE == GRID_SIZE - 1) {
-					// right edge
-					updated = G * node_data_buffer[4*i+3];
-					update_unode(unodes+i, updated);
-				} else if(node_num < GRID_SIZE){
-					// top edge
-					updated = G * node_data_buffer[4*i+2];
-					update_unode(unodes+i, updated);
-				} else if (node_num > GRID_SIZE * (GRID_SIZE - 1)){
-					// bottom edge
-					updated = G * node_data_buffer[4*i];
-					update_unode(unodes+i, updated);
-				} else {
-					// if central node; do nothing
-				}
-			}
-			MPI_Barrier(MPI_COMM_WORLD);
-			// ***************************************************************8
-			// send, with corner nodes update restriction
-			exchange_unode_data(SEND_OP, UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, NULL);
-			// receieve, with corner nodes update restriction
-			exchange_unode_data(RECEIVE_OP, UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, node_data_buffer);
-			// update corner nodes
-			for (i = 0; i < nodes_per_process; i++){
-				int node_num = offset + i;
-				if (node_num == 0) {
-					// left top corner
-					updated = G * node_data_buffer[4*i+2];
-					update_unode(unodes+i, updated);
-				} else if (node_num == GRID_SIZE * (GRID_SIZE - 1)){
-					// left bottom corner
-					updated = G * node_data_buffer[4*i];
-					update_unode(unodes+i, updated);
-				} else if (node_num == GRID_SIZE - 1 || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
-					// right top and bottom corners
-					updated = G * node_data_buffer[4*i+3];
-					update_unode(unodes+i, updated);
-				} else if (node_num % GRID_SIZE == 0 || node_num % GRID_SIZE == GRID_SIZE - 1 || node_num < GRID_SIZE || node_num > GRID_SIZE * (GRID_SIZE - 1)){
-					// if edge but not corner; do nothing
-				} else {
-					// if central node; do nothing
-				}
-			}
-			MPI_Barrier(MPI_COMM_WORLD);
-			// ***************************************************************8
-
-			//print_nodes(rank, number_of_processes, nodes_per_process, unodes);
-			if (perturb_node_offset >= offset && perturb_node_offset < offset + nodes_per_process){
-				// print node in the middle
-				printf("{[%d,%d] %f}\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturb_node_offset-offset].u_array[0]);
-			}
+	// run computation iterations
+	while (iterations-- > 0){
+		// update central nodes
+		simulate_sub_iteration(UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, node_data_buffer);
+		// update edges
+		simulate_sub_iteration(UPDATE_EDGES, rank, offset, nodes_per_process, unodes, node_data_buffer);
+		// update corners
+		simulate_sub_iteration(UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, node_data_buffer);
+		// print result at the node at N/2, N/2
+		if (perturbation_node >= offset && perturbation_node < offset + nodes_per_process){
+			printf("{[%d,%d] %f}\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturbation_node - offset].u_array[0]);
 		}
 	}
 
@@ -345,7 +327,10 @@ int main(int argc, char *argv[])
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
+	// free pointers
 	free(node_data_buffer);
+	free(unodes);
+
 	// Finalize the MPI environment and return
 	MPI_Finalize();
 	return 0;
