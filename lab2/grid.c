@@ -116,7 +116,7 @@ void get_index_by(int k, int i, int j, int *ii, int *jj){
 }
 
 /**
-   * @brief Return true if the node does not need to be updated
+   * @brief Return true if the node needs to be update, false otherwise (return integer as boolean, 0 for false, 1 for true)
    */
 int check_update_condition(int update_restriction, int node_num){
 	if (node_num == 0 || node_num == GRID_SIZE - 1 || node_num == GRID_SIZE * (GRID_SIZE - 1) || node_num == (GRID_SIZE * GRID_SIZE - 1)) {
