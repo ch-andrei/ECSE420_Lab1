@@ -3,6 +3,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <mpi.h>
+#include <time.h>
 
 // Note: the value of the "eta" constant should be 2e-4, the value of the "rho" constant should be 0.5, and the value of the "G" constant should be 0.75.
 
@@ -26,6 +27,8 @@
 
 #define get_1d(i, j, width) ((i)*(width)+(j))
 #define get_2d(index, width, ij) (((ij)==0)?((index)/(width)):((index)%(width)))
+
+#define NUMBER_OF_LOOPS_TO_TEST 100
 
 typedef struct unode_t{
 	int i;
@@ -64,7 +67,7 @@ void print_nodes(int rank, int num_proc, int nodes_per_process, unode_t *nodes){
 		// print nodes
 		for (int i = 0; i < GRID_SIZE; i++){
 			for (int j = 0; j < GRID_SIZE; j++){
-				printf("{[%d,%d] %f} \t",i,j,nodes_num[get_1d(i,j,GRID_SIZE)]);
+				//printf("{[%d,%d] %f} \t",i,j,nodes_num[get_1d(i,j,GRID_SIZE)]);
 			}
 			puts("");
 		}
@@ -322,25 +325,37 @@ int main(int argc, char *argv[])
 	int perturbation_node;
 	nodes_setup(rank, unodes, nodes_per_process, offset, &perturbation_node);
 
-	// TODO
-	// start timer here
-
-	// run computation iterations
-	while (iterations-- > 0){
-		// update central nodes
-		simulate_sub_iteration(UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, node_data_buffer);
-		// update edges
-		simulate_sub_iteration(UPDATE_EDGES, rank, offset, nodes_per_process, unodes, node_data_buffer);
-		// update corners
-		simulate_sub_iteration(UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, node_data_buffer);
-		// print result at the node at N/2, N/2
-		if (perturbation_node >= offset && perturbation_node < offset + nodes_per_process){
-			printf("{[%d,%d] %f}\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturbation_node - offset].u_array[0]);
-		}
+	double runtime; 
+	clock_t start, end;
+	int counter = 0;
+	if(rank==0){
+		// record start time 
+		start = clock();
 	}
 
-	// TODO
-	// end timer here
+	while(counter < NUMBER_OF_LOOPS_TO_TEST){
+		// run computation iterations
+		while (iterations-- > 0){
+			// update central nodes
+			simulate_sub_iteration(UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, node_data_buffer);
+			// update edges
+			simulate_sub_iteration(UPDATE_EDGES, rank, offset, nodes_per_process, unodes, node_data_buffer);
+			// update corners
+			simulate_sub_iteration(UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, node_data_buffer);
+			// print result at the node at N/2, N/2
+			if (perturbation_node >= offset && perturbation_node < offset + nodes_per_process){
+				//printf("{[%d,%d] %f}\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturbation_node - offset].u_array[0]);
+			}
+		}
+		counter++;
+	}
+	
+	if(rank==0){
+		// record end time
+		end = clock();
+		runtime = ((double) (end-start))/CLOCKS_PER_SEC;
+		printf("Runtime is: %.23f seconds. Note that this value wont be accurate if only 1 test was run (which is default).\n", runtime);
+	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
