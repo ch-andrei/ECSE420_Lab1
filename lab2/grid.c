@@ -28,8 +28,6 @@
 #define get_1d(i, j, width) ((i)*(width)+(j))
 #define get_2d(index, width, ij) (((ij)==0)?((index)/(width)):((index)%(width)))
 
-#define NUMBER_OF_LOOPS_TO_TEST 100
-
 typedef struct unode_t{
 	int i;
 	int j;
@@ -333,23 +331,20 @@ int main(int argc, char *argv[])
 		start = clock();
 	}
 
-	while(counter < NUMBER_OF_LOOPS_TO_TEST){
 		// run computation iterations
-		while (iterations-- > 0){
-			// update central nodes
-			simulate_sub_iteration(UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, node_data_buffer);
-			// update edges
-			simulate_sub_iteration(UPDATE_EDGES, rank, offset, nodes_per_process, unodes, node_data_buffer);
-			// update corners
-			simulate_sub_iteration(UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, node_data_buffer);
-			// print result at the node at N/2, N/2
-			if (perturbation_node >= offset && perturbation_node < offset + nodes_per_process){
-				//printf("{[%d,%d] %f}\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturbation_node - offset].u_array[0]);
-			}
+	while (iterations-- > 0){
+		// update central nodes
+		simulate_sub_iteration(UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, node_data_buffer);
+		// update edges
+		simulate_sub_iteration(UPDATE_EDGES, rank, offset, nodes_per_process, unodes, node_data_buffer);
+		// update corners
+		simulate_sub_iteration(UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, node_data_buffer);
+		// print result at the node at N/2, N/2
+		if (perturbation_node >= offset && perturbation_node < offset + nodes_per_process){
+			//printf("{[%d,%d] %f}\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturbation_node - offset].u_array[0]);
 		}
-		counter++;
 	}
-	
+		
 	if(rank==0){
 		// record end time
 		end = clock();
