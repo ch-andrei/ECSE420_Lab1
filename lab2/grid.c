@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <mpi.h>
 #include <time.h>
+#include "output.h"
 
 // Note: the value of the "eta" constant should be 2e-4, the value of the "rho" constant should be 0.5, and the value of the "G" constant should be 0.75.
 
@@ -296,6 +297,15 @@ void nodes_setup(int rank, unode_t unodes[], int nodes_per_process, int offset, 
 	}
 }
 
+/**
+   * @brief tests if two floating point numbers are equal
+   */
+int test_equality(float a, float b, float epsilon)
+{
+  if (fabs(a-b) < epsilon) return 1;
+  return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	if(argc<1)
@@ -323,15 +333,17 @@ int main(int argc, char *argv[])
 	int perturbation_node;
 	nodes_setup(rank, unodes, nodes_per_process, offset, &perturbation_node);
 
+	#ifdef DEBUG
 	double runtime; 
 	clock_t start, end;
-	int counter = 0;
 	if(rank==0){
 		// record start time 
 		start = clock();
 	}
+	#endif /* DEBUG */
 
-		// run computation iterations
+	// run computation iterations
+	int counter;
 	while (iterations-- > 0){
 		// update central nodes
 		simulate_sub_iteration(UPDATE_CENTRAL, rank, offset, nodes_per_process, unodes, node_data_buffer);
@@ -341,16 +353,24 @@ int main(int argc, char *argv[])
 		simulate_sub_iteration(UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, node_data_buffer);
 		// print result at the node at N/2, N/2
 		if (perturbation_node >= offset && perturbation_node < offset + nodes_per_process){
-			//printf("{[%d,%d] %f}\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturbation_node - offset].u_array[0]);
+			//printf("%f\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturbation_node - offset].u_array[0]);
+			#ifdef DEBUG
+			if (test_equality(unodes[perturbation_node - offset].u_array[0], output[counter], 1>>8)){
+				printf("MISMATCH\t@%d: %f vs %f\n", counter, unodes[perturbation_node - offset].u_array[0], output[counter]);
+			}
+			#endif /* DEBUG */
 		}
+		counter++;
 	}
 		
+	#ifdef DEBUG
 	if(rank==0){
 		// record end time
 		end = clock();
 		runtime = ((double) (end-start))/CLOCKS_PER_SEC;
 		printf("Runtime is: %.23f seconds. Note that this value wont be accurate if only 1 test was run (which is default).\n", runtime);
 	}
+	#endif /* DEBUG */
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
