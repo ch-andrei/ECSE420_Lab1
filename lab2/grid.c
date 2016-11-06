@@ -353,10 +353,10 @@ int main(int argc, char *argv[])
 		simulate_sub_iteration(UPDATE_CORNERS, rank, offset, nodes_per_process, unodes, node_data_buffer);
 		// print result at the node at N/2, N/2
 		if (perturbation_node >= offset && perturbation_node < offset + nodes_per_process){
-			printf("%f\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturbation_node - offset].u_array[0]);
+			printf("%f,\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturbation_node - offset].u_array[0]);
 			#ifdef DEBUG
 			printf("completed %d\n", counter);
-			if (test_equality(unodes[perturbation_node - offset].u_array[0], output[counter], 1>>8)){
+			if (test_equality(unodes[perturbation_node - offset].u_array[0], output[counter], 0.00001)){
 				printf("MISMATCH\t@%d: %f vs %f\n", counter, unodes[perturbation_node - offset].u_array[0], output[counter]);
 			}
 			#endif /* DEBUG */
