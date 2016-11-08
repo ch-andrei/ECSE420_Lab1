@@ -356,7 +356,7 @@ int main(int argc, char *argv[])
 			printf("%f,\n", GRID_SIZE/2, GRID_SIZE/2, unodes[perturbation_node - offset].u_array[0]);
 			#ifdef DEBUG
 			printf("completed %d\n", counter);
-			if (test_equality(unodes[perturbation_node - offset].u_array[0], output[counter], 0.00001)){
+			if (!test_equality(unodes[perturbation_node - offset].u_array[0], output[counter], 0.00001)){
 				printf("MISMATCH\t@%d: %f vs %f\n", counter, unodes[perturbation_node - offset].u_array[0], output[counter]);
 			}
 			#endif /* DEBUG */
