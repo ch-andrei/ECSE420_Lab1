@@ -43,7 +43,9 @@ __device__ unsigned convert_block_to_pixel_offset(unsigned blocks_offset, unsign
 */
 __global__ void convolve(unsigned char *d_image_buffer, unsigned char *d_out_buffer, unsigned image_width, unsigned image_height, float* weights, unsigned index_offset)
 {
-	unsigned blocks_offset = blockDim.x * blockIdx.x + threadIdx.x + index_offset;
+	int blockId = blockIdx.y * gridDim.x + blockIdx.x;			 	
+	int threadId = blockId * blockDim.x + threadIdx.x; 
+	int blocks_offset = threadId + index_offset;
 	blocks_offset = convert_block_to_pixel_offset(blocks_offset, image_width);
 	int i = get_2d(blocks_offset, image_width, 0);
 	int j = get_2d(blocks_offset, image_width, 1);

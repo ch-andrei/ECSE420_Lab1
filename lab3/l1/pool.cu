@@ -17,7 +17,9 @@ __device__ unsigned get_block_offset(unsigned k, unsigned image_width){
 */
 __global__ void max_pool(unsigned char *d_image_buffer, unsigned char *d_out_buffer, unsigned image_width, unsigned index_offset)
 {
-	int index = blockDim.x * blockIdx.x + threadIdx.x + index_offset;
+	int blockId = blockIdx.y * gridDim.x + blockIdx.x;			 	
+	int threadId = blockId * blockDim.x + threadIdx.x; 
+	int index = threadId + index_offset;
 	unsigned char* c;
 	unsigned max, val; 
 	// pool on RGBA channels

@@ -14,7 +14,9 @@ __global__ void rectify(unsigned char *d_image_in, unsigned index_offset)
 {
 	// pixel is 32bits, 8 bits for each channel (BYTES_PER_PIXEL channels: RGBA)
 	// rectify RGB but not A 
-	int length_offset = blockDim.x * blockIdx.x + threadIdx.x + index_offset;
+	int blockId = blockIdx.y * gridDim.x + blockIdx.x;			 	
+	int threadId = blockId * blockDim.x + threadIdx.x; 
+	int length_offset = threadId + index_offset;
 	int i = BYTES_PER_PIXEL * length_offset;
 	unsigned char* d_c = d_image_in + i * sizeof(char);
 	for (int j = 0; j < 3; j++){
