@@ -2,7 +2,7 @@ CC = nvcc
 CFLAGS =
 LIBS =
 SOURCE = grid
-TARGETS = grid_512_512
+TARGETS = debug_grid grid_4_4 grid_512_512
 
 default: clean $(TARGETS)
 all: default

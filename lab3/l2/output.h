@@ -1,4 +1,6 @@
-float output[2000] = {
+#define OUTPUT_LENGTH 2000
+
+float output[OUTPUT_LENGTH] = {
 0.000000,
 0.000000,
 0.000000,
