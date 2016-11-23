@@ -256,6 +256,9 @@ int main(int argc, char *argv[])
 	
 	int iteration_num = 0;
 	// run computation iterations
+	GpuTimer timer;
+	// start kernel
+	timer.Start();
 	while (iteration_num < iterations){
 		//printf("iterating\n");
 		// update central nodes
@@ -279,7 +282,10 @@ int main(int argc, char *argv[])
 
 		iteration_num++;
 	}
-		
+	timer.Stop();
+	#ifdef DEBUG
+    printf("Time elapsed = %g ms\n", timer.Elapsed());
+	#endif	
 	// free pointers
 	free(h_unodes);
 	cudaFree(d_unodes);
