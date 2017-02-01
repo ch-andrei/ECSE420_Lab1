@@ -13,7 +13,7 @@ __device__ unsigned get_block_offset(unsigned k, unsigned image_width){
 }
 
 /**
-* CUDA kernal to perform pooling for one output pixel
+* CUDA kernel to perform pooling for one output pixel
 */
 __global__ void max_pool(unsigned char *d_image_buffer, unsigned char *d_out_buffer, unsigned image_width, unsigned index_offset)
 {

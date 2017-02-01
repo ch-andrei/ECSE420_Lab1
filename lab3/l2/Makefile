@@ -2,7 +2,7 @@ CC = nvcc
 CFLAGS =
 LIBS =
 SOURCE = grid
-TARGETS = debug_grid grid_4_4 grid_512_512
+TARGETS = grid_debug grid_4_4 grid_512_512
 
 default: clean $(TARGETS)
 all: default
@@ -15,8 +15,8 @@ grid_4_4:
 grid_512_512:
 	$(CC) $(SOURCE).cu -o grid_512_512 $(CFLAGS) $(LIBS)
 
-debug_grid:
-	$(CC) $(SOURCE).cu -o debug_grid $(CFLAGS) $(LIBS) -D DEBUG
+grid_debug:
+	$(CC) $(SOURCE).cu -o grid_debug $(CFLAGS) $(LIBS) -D DEBUG
 
 clean:
 	-rm -f $(TARGETS)
